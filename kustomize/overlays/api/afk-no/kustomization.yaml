@@ -20,7 +20,7 @@ patches:
         path: "/spec/resources"
         value: 
           limits:
-            cpu: "3000m"
+            cpu: "4000m"
             memory: "8000Mi"
           requests:
             cpu: "1000m"
