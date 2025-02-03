@@ -20,7 +20,7 @@ patches:
         path: "/spec/resources"
         value: 
           limits:
-            cpu: "4000m"
+            cpu: "5000m"
             memory: "8000Mi"
           requests:
             cpu: "1000m"
@@ -36,7 +36,7 @@ patches:
         value: "afk-no-fint-kontroll-user-factory"
       - op: replace
         path: "/spec/env/4/value"
-        value: "-XX:+ExitOnOutOfMemoryError -Xmx896m -verbose:gc"
+        value: "-XX:+ExitOnOutOfMemoryError -Xmx7950m"
       - op: replace
         path: "/spec/env/5/value"
         value: "14"
