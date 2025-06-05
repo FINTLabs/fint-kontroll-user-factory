@@ -26,7 +26,7 @@ public class User {
     private List<String> organisationUnitIds;
     private String mobilePhone;
     private String email;
-    private  String managerRef;
+    private String managerRef;
     private String status;
     private Date statusChanged;
     private Date validFrom;

@@ -69,11 +69,6 @@ public class EntityCacheConfiguration {
     FintCache<String, Long> employeeInSchoolCache() {return createCache(Long.class);}
 
 
-//    @Bean
-//    FintCache<String, Integer> publishedUserHashCache() {
-//        return createCache(Integer.class);
-//    }
-
     @Bean
     FintCache<String, User> publishUserCache() { return createCache(User.class);}
 
