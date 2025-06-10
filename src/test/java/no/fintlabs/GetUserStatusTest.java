@@ -40,14 +40,14 @@ class GetUserStatusTest {
         Date currentTime = Date.from(Instant.now());
         String statusFromGetUserStatus = UserUtils.getFINTAnsattStatus(personalressurs,currentTime);
 
-        assertThat(statusFromGetUserStatus).isEqualTo("ACTIVE");
+        assertThat(statusFromGetUserStatus).isEqualTo(UserUtils.UserStatus.ACTIVE.toString());
 
         System.out.println("getUserStatus returns: " + statusFromGetUserStatus);
 
     }
 
     @Test
-    public void shouldReturnDisabled(){
+    public void shouldReturnInactive(){
         // Startdate and enddate passed
         PersonalressursResource personalressursResource = new PersonalressursResource();
         Identifikator ansattnummer = new Identifikator();
@@ -63,7 +63,7 @@ class GetUserStatusTest {
         Date currentTime = Date.from(Instant.now());
         String statusFromGetUserStatus = UserUtils.getFINTAnsattStatus(personalressursResource,currentTime);
 
-        assertThat(statusFromGetUserStatus).isEqualTo("DISABLED");
+        assertThat(statusFromGetUserStatus).isEqualTo(UserUtils.UserStatus.INACTIVE.toString());
 
         System.out.println("getUserStatus returns: " + statusFromGetUserStatus);
     }

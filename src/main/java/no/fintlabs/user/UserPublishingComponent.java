@@ -131,7 +131,7 @@ public class UserPublishingComponent {
 
 
         String fintStatus = UserUtils.getFINTAnsattStatus(personalressursResource, currentTime);
-        Date statusChanged = fintStatus.equals("ACTIVE")
+        Date statusChanged = fintStatus.equals(UserUtils.UserStatus.ACTIVE.toString())
                 ? personalressursResource.getAnsettelsesperiode().getStart()
                 : personalressursResource.getAnsettelsesperiode().getSlutt();
 
@@ -173,8 +173,8 @@ public class UserPublishingComponent {
         Date validFrom = personalressursResource.getAnsettelsesperiode().getStart();
         Date validTo = personalressursResource.getAnsettelsesperiode().getSlutt();
 
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals("ACTIVE")
-                && fintStatus.equals("ACTIVE") ? "ACTIVE" : "DISABLED";
+        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserUtils.UserStatus.ACTIVE.toString())
+                && fintStatus.equals(UserUtils.UserStatus.ACTIVE.toString()) ? UserUtils.UserStatus.ACTIVE.toString() : UserUtils.UserStatus.INACTIVE.toString();
 
         String userType = skoleressursService.isEmployeeInSchool(resourceId)
                 ? String.valueOf(UserUtils.UserType.EMPLOYEEFACULTY)

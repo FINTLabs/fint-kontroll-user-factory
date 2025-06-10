@@ -2,6 +2,7 @@ package no.fintlabs.azureUser;
 
 import lombok.extern.slf4j.Slf4j;
 import no.fintlabs.cache.FintCache;
+import no.fintlabs.user.UserUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -25,7 +26,7 @@ public class AzureUserService {
             azureUserAttributes.put("email", azureUser.getMail());
             azureUserAttributes.put("userName", azureUser.getUserPrincipalName());
             azureUserAttributes.put("identityProviderUserObjectId", azureUser.getId());
-            azureUserAttributes.put("azureStatus", azureUser.isAccountEnabled()?"ACTIVE" :"DISABLED");
+            azureUserAttributes.put("azureStatus", azureUser.isAccountEnabled() ? UserUtils.UserStatus.ACTIVE.toString() : UserUtils.UserStatus.INACTIVE.toString() );
         }
         else {
             log.debug("No match for employeeId or studentId {} in azureusercache",

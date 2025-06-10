@@ -125,7 +125,7 @@ public class UserPublishingElevComponent {
         Date validFrom = elevforholdOptional.get().getGyldighetsperiode().getStart();
         Date validTo = elevforholdOptional.get().getGyldighetsperiode().getSlutt();
 
-        Date statusChanged = fintStatus.equals("ACTIVE") ? validFrom : validTo;
+        Date statusChanged = fintStatus.equals(UserUtils.UserStatus.ACTIVE.toString()) ? validFrom : validTo;
 
 
         return Optional.of(
@@ -164,8 +164,8 @@ public class UserPublishingElevComponent {
 //                .orElse("");
 
 
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals("ACTIVE")
-                && fintStatus.equals("ACTIVE") ? "ACTIVE" : "DISABLED";
+        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserUtils.UserStatus.ACTIVE.toString())
+                && fintStatus.equals(UserUtils.UserStatus.ACTIVE.toString()) ? UserUtils.UserStatus.ACTIVE.toString() : UserUtils.UserStatus.INACTIVE.toString();
 
         log.info("Creating user (student) with resourceId: {}", resourceId);
 

@@ -44,25 +44,25 @@ public class UserUtils {
     public static String getFINTAnsattStatus(PersonalressursResource personalressursResource, Date currentTime) {
         Periode gyldighetsPeriode = personalressursResource.getAnsettelsesperiode();
         String status = gyldighetsperiodeService.isValid(gyldighetsPeriode,currentTime, DAYS_BEFORE_START_EMPLOYEE)
-                ?"ACTIVE"
-                :"DISABLED";
+                ? UserStatus.ACTIVE.toString()
+                :UserStatus.INACTIVE.toString();
 
-        if (status.equals("DISABLED")){
-            log.info("User is DISABLED from FINT. FINT ansattnummer: {}", personalressursResource.getAnsattnummer().getIdentifikatorverdi());
+        if (status.equals(UserStatus.INACTIVE.toString())){
+            log.info("User is INACTIVE from FINT. FINT ansattnummer: {}", personalressursResource.getAnsattnummer().getIdentifikatorverdi());
         }
 
         return status;
     }
 
     public static String getFINTElevStatus(ElevforholdResource elevforhold, Date currentTime) {
-        String resoursID = elevforhold.getSystemId().getIdentifikatorverdi();
         Periode gyldighetsperiode = elevforhold.getGyldighetsperiode();
         String status = gyldighetsperiodeService.isValid(gyldighetsperiode,currentTime, DAYS_BEFORE_START_STUDENT)
-                ?"ACTIVE"
-                :"DISABLED";
+                ? UserStatus.ACTIVE.toString()
+                :UserStatus.INACTIVE.toString();
 
-        log.debug("Systemid: {} stop: {}Status: {}", resoursID, elevforhold.getGyldighetsperiode().getSlutt(), status);
-
+        if (status.equals(UserStatus.INACTIVE.toString())){
+            log.info("Elevforhold is INACTIVE from FINT: {}", elevforhold.getSystemId().getIdentifikatorverdi());
+        }
         return status;
     }
 
@@ -87,6 +87,12 @@ public class UserUtils {
         STUDENT,
         AFFILIATE
     }
+
+    public enum UserStatus {
+        ACTIVE,
+        INACTIVE
+    }
+
 
 }
 
