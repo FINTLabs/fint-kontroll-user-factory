@@ -1,12 +1,10 @@
-package no.fintlabs;
+package no.fintlabs.resourceServices;
 
-import no.fintlabs.resourceServices.GyldighetsperiodeService;
 import no.fint.model.felles.kompleksedatatyper.Periode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import no.fintlabs.resourceServices.GyldighetsperiodeService.NullPeriodeException;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
