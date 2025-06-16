@@ -4,6 +4,7 @@ import no.fint.model.resource.Link;
 import no.fint.model.resource.felles.PersonResource;
 import no.fint.model.resource.utdanning.elev.ElevResource;
 import no.fintlabs.cache.FintCache;
+import no.fintlabs.links.NoSuchLinkException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 class PersonUtdanningServiceTest {
@@ -39,15 +41,13 @@ class PersonUtdanningServiceTest {
                 .contains(expectedPerson);
     }
 
- /*   @Test
-    void shouldReturnEmptyOptionalWhenElevHasNoPersonLink() {
+   @Test
+    void shouldThrowWhenElevHasNoPersonLink() {
         ElevResource elevResource = new ElevResource();
-
-        Optional<PersonResource> result = personUtdanningService.getPersonUtdanning(elevResource);
-
-        assertThat(result).isEmpty();
+        assertThat(assertThrows(NoSuchLinkException.class,
+                () -> personUtdanningService.getPersonUtdanning(elevResource)).getMessage()).contains("No link for 'Elev'");
     }
-*/
+
     @Test
     void shouldReturnEmptyOptionalWhenPersonNotFoundInCache() {
         ElevResource elevResource = new ElevResource();
