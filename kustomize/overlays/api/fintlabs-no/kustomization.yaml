@@ -10,12 +10,12 @@ commonLabels:
   app.kubernetes.io/component: backend
   app.kubernetes.io/part-of: fint-kontroll
   fintlabs.no/team: bas
-  fintlabs.no/org-id: fintlabs.no
+  fintlabs.no/org-id: vigo.no
 patches:
   - patch: |-
       - op: replace
         path: "/spec/orgId"
-        value: "fintlabs.no"
+        value: "vigo.no"
       - op: add
         path: "/spec/resources"
         value:
