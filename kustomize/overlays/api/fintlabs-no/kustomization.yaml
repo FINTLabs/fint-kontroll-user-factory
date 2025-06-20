@@ -27,7 +27,7 @@ patches:
             memory: "2000Mi"
       - op: replace
         path: "/spec/env/3/value"
-        value: "fintlabs-no-fint-kontroll-user-factory"
+        value: "vigo-no-fint-kontroll-user-factory"
       - op: replace
         path: "/spec/env/4/value"
         value: "-XX:+ExitOnOutOfMemoryError -Xmx896m -verbose:gc"
@@ -37,6 +37,12 @@ patches:
       - op: replace
         path: "/spec/env/6/value"
         value: '5'
+      - op: replace
+        path: "/spec/kafka/acls/0/topic"
+        value: "vigo-no.kontroll.*"
+      - op: replace
+        path: "/spec/kafka/acls/1/topic"
+        value: "vigo-no.kontroll.*"
     target:
       kind: Application
       name: fint-kontroll-user-factory
