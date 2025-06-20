@@ -43,6 +43,9 @@ patches:
       - op: replace
         path: "/spec/kafka/acls/1/topic"
         value: "vigo-no.kontroll.*"
+      - op: replace
+        path: "/spec/env/7/value"
+        value: "vigo-no"
     target:
       kind: Application
       name: fint-kontroll-user-factory
