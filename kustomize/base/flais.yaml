@@ -17,7 +17,7 @@ spec:
     - name: spring.kafka.consumer.group-id
       value: 'fint-kontroll-user-factory'
     - name: JAVA_TOOL_OPTIONS
-      value: "-XX:+ExitOnOutOfMemoryError -Xmx896m -verbose:gc"
+      value: "-XX:+ExitOnOutOfMemoryError -Xmx896m"
     - name: fint.kontroll.user.days-before-start-employee
       value: '0'
     - name: fint.kontroll.user.days-before-start-student
