@@ -59,7 +59,7 @@ public class UserPublishingElevComponent {
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
         log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOFElevforholdInCache());
         log.info("Number og users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
-        log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
+        log.info("Published {} of {} valid students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
                 publishedElevUsers.stream()
                         .map(User::getResourceId)
@@ -85,7 +85,7 @@ public class UserPublishingElevComponent {
         Optional<ElevforholdResource> elevforholdOptional =
                 elevforholdService.getElevforhold(elevResource.getElevforhold(), currentTime);
         if (elevforholdOptional.isEmpty()) {
-            log.info("Creating user failed, resourceId={}, missing elevforhold", resourceId);
+            log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
             return Optional.empty();
         }
 

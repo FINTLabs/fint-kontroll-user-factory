@@ -75,10 +75,16 @@ public class ElevforholdService {
     private boolean isValid(ElevforholdResource elevforholdResource, Date currentTime){
 
         if (elevforholdResource.getGyldighetsperiode() != null) {
-            return gyldighetsperiodeService.isValid(
+            boolean isGyldighetsperiodeValid = gyldighetsperiodeService.isValid(
                     elevforholdResource.getGyldighetsperiode(),
                     currentTime,daysBeforeStartStudent);
-        } else  return false;
+            log.info("Gydlighetsperiode for elevforhold is not null. Gyldighetsperiode is valid: {}. Days-before-start is: {}"
+                    ,isGyldighetsperiodeValid,daysBeforeStartStudent);
+            return isGyldighetsperiodeValid;
+        } else  {
+            log.info("Gyldighetsperiode for elevforhold is null");
+            return false;
+        }
     }
 
 
