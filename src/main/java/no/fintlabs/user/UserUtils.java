@@ -22,7 +22,7 @@ public class UserUtils {
         UserUtils.DAYS_BEFORE_START_EMPLOYEE = daysBeforeStartEmployee;
     };
 
-    private static int DAYS_BEFORE_START_STUDENT;
+    public static int DAYS_BEFORE_START_STUDENT;
     @Value("${fint.kontroll.user.days-before-start-student}")
     private void setDaysBeforeStartStudent(int daysBeforeStartStudent) {
         UserUtils.DAYS_BEFORE_START_STUDENT = daysBeforeStartStudent;

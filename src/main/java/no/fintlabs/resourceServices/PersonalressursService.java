@@ -15,6 +15,7 @@ public class PersonalressursService {
     @Value("${fint.kontroll.user.days-before-start-employee:0}")
     private static int daysBeforeStartEmployee;
 
+
     @Value("${fint.kontroll.user.days-before-start-student:0}")
     private static int daysBeforeStartStudent;
 

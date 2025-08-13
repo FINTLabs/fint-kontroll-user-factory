@@ -7,6 +7,7 @@ import no.fint.model.resource.utdanning.elev.ElevforholdResource;
 import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.links.ResourceLinkUtil;
+import no.fintlabs.user.UserUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,8 +20,10 @@ import java.util.Optional;
 @Service
 public class ElevforholdService {
 
-    @Value("${fint.kontroll.user.days-before-start-student:0}")
-    private static int daysBeforeStartStudent;
+//    @Value("${fint.kontroll.user.days-before-start-student:0}")
+
+    private static int daysBeforeStartStudent = UserUtils.DAYS_BEFORE_START_STUDENT;
+
 
     private final GyldighetsperiodeService gyldighetsperiodeService;
     private final FintCache<String, ElevforholdResource> elevforholdResourceCache;
