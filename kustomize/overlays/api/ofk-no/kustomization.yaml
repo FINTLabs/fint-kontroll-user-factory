@@ -39,7 +39,7 @@ patches:
         value: "14"
       - op: replace
         path: "/spec/env/6/value"
-        value: "5"
+        value: "6"
     target:
       kind: Application
       name: fint-kontroll-user-factory
