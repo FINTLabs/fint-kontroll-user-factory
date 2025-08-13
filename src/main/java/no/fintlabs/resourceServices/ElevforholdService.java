@@ -54,6 +54,8 @@ public class ElevforholdService {
         return getAllElevforhold(elevforholdResources, currentTime);
     }
 
+    public Long getNumberOFElevforholdInCache(){return elevforholdResourceCache.getNumberOfDistinctValues();}
+
 
     private Optional<ElevforholdResource> getAllElevforhold(
             List<ElevforholdResource> elevforholdResources, Date currentTime

@@ -57,6 +57,7 @@ public class UserPublishingElevComponent {
 
         List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allValidElevUsers);
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
+        log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOFElevforholdInCache());
         log.info("Number og users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
         log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
