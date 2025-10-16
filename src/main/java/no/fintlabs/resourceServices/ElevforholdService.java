@@ -20,23 +20,14 @@ import java.util.Optional;
 @Service
 public class ElevforholdService {
 
-//    @Value("${fint.kontroll.user.days-before-start-student:0}")
-
-    private static int daysBeforeStartStudent = UserUtils.DAYS_BEFORE_START_STUDENT;
-
-
-    private final GyldighetsperiodeService gyldighetsperiodeService;
     private final FintCache<String, ElevforholdResource> elevforholdResourceCache;
     private final FintCache<String, SkoleResource> skoleResourceCache;
     private final FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache;
 
     public ElevforholdService(
-            GyldighetsperiodeService gyldighetsperiodeService,
-
             FintCache<String, ElevforholdResource> elevforholdResourceCache,
             FintCache<String, SkoleResource> skoleResourceCache,
             FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache) {
-        this.gyldighetsperiodeService = gyldighetsperiodeService;
         this.elevforholdResourceCache = elevforholdResourceCache;
         this.skoleResourceCache = skoleResourceCache;
         this.organisasjonselementResourceCache = organisasjonselementResourceCache;
@@ -45,7 +36,7 @@ public class ElevforholdService {
     public Optional<ElevforholdResource> getElevforhold(
             Collection<Link> elevforholdLinks,
             Date currentTime
-    ){
+    ) {
         List<ElevforholdResource> elevforholdResources = elevforholdLinks
                 .stream()
                 .map(Link::getHref)
@@ -57,50 +48,42 @@ public class ElevforholdService {
         return getAllElevforhold(elevforholdResources, currentTime);
     }
 
-    public Long getNumberOFElevforholdInCache(){return elevforholdResourceCache.getNumberOfDistinctValues();}
+    public Long getNumberOFElevforholdInCache() {
+        return elevforholdResourceCache.getNumberOfDistinctValues();
+    }
 
 
     private Optional<ElevforholdResource> getAllElevforhold(
             List<ElevforholdResource> elevforholdResources, Date currentTime
-    ){
+    ) {
         return elevforholdResources
                 .stream()
-                .filter(elevforholdResource -> isValid(elevforholdResource,currentTime))
-                //.filter(this::isHovedSkole)
+                .filter(this::isValid)
                 .findFirst();
     }
 
-
-    private boolean isHovedSkole(ElevforholdResource elevforhold){
-        return elevforhold.getHovedskole();
-    }
-
-    private boolean isValid(ElevforholdResource elevforholdResource, Date currentTime){
-
+    private boolean isValid(ElevforholdResource elevforholdResource) {
         if (elevforholdResource.getGyldighetsperiode() != null) {
-            boolean isGyldighetsperiodeValid = gyldighetsperiodeService.isValid(
-                    elevforholdResource.getGyldighetsperiode(),
-                    currentTime,daysBeforeStartStudent);
-            log.info("Gydlighetsperiode for elevforhold is not null. Gyldighetsperiode is valid: {}. Days-before-start is: {}"
-                    ,isGyldighetsperiodeValid,daysBeforeStartStudent);
-            return isGyldighetsperiodeValid;
-        } else  {
+            return true;
+        } else {
             log.info("Gyldighetsperiode for elevforhold is null");
             return false;
         }
     }
 
 
-    public Optional<SkoleResource> getSkole(ElevforholdResource elevforhold, Date currentTime) {
+    public Optional<SkoleResource> getSkole(ElevforholdResource elevforhold) {
         String skoleHref = elevforhold.getSkole().get(0).getHref().toLowerCase();
         Optional<SkoleResource> skoleResource = skoleResourceCache.getOptional(skoleHref);
-        if (skoleResource.isEmpty()){log.info("Fant ikke skole for " + skoleHref);}
+        if (skoleResource.isEmpty()) {
+            log.info("Fant ikke skole for " + skoleHref);
+        }
         return skoleResource;
 
 
     }
 
-    public Optional<OrganisasjonselementResource> getSkoleOrgUnit(SkoleResource skoleResource, Date currentTime){
+    public Optional<OrganisasjonselementResource> getSkoleOrgUnit(SkoleResource skoleResource) {
         // legg inn sjekk på null
         String skoleOrgUnitref = skoleResource.getOrganisasjon().get(0).getHref();
         //Legg på sjekk på null

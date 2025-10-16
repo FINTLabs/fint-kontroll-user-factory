@@ -16,7 +16,7 @@ import java.util.*;
 public class ArbeidsforholdService {
 
     @Value("${fint.kontroll.user.days-before-start-employee:0}")
-    private static int daysBeforeStartEmployee;
+    private int daysBeforeStartEmployee;
 
     private final GyldighetsperiodeService gyldighetsperiodeService;
     private final FintCache<String, ArbeidsforholdResource> arbeidsforholdResourceCache;

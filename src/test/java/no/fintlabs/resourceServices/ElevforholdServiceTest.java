@@ -1,6 +1,5 @@
 package no.fintlabs.resourceServices;
 
-import no.fint.model.felles.kompleksedatatyper.Identifikator;
 import no.fint.model.felles.kompleksedatatyper.Periode;
 import no.fint.model.resource.Link;
 import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
 
@@ -22,9 +20,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ElevforholdServiceTest {
-
-    @Mock
-    private GyldighetsperiodeService gyldighetsperiodeService;
 
     @Mock
     private FintCache<String, ElevforholdResource> elevforholdResourceCache;
@@ -42,8 +37,7 @@ class ElevforholdServiceTest {
     @BeforeEach
     void init() {
         currentTime = new Date();
-        elevforholdService = new ElevforholdService(gyldighetsperiodeService, elevforholdResourceCache, skoleResourceCache, organisasjonselementResourceCache);
-        ReflectionTestUtils.setField(elevforholdService, "daysBeforeStartStudent", 0);
+        elevforholdService = new ElevforholdService(elevforholdResourceCache, skoleResourceCache, organisasjonselementResourceCache);
     }
 
     @Test
@@ -62,8 +56,6 @@ class ElevforholdServiceTest {
         Periode periode = new Periode();
         resource.setGyldighetsperiode(periode);
         when(elevforholdResourceCache.getOptional(anyString())).thenReturn(Optional.of(resource));
-        when(gyldighetsperiodeService.isValid(eq(periode), eq(currentTime), anyInt()))
-                .thenReturn(true);
 
         Optional<ElevforholdResource> result = elevforholdService.getElevforhold(List.of(link), currentTime);
 
@@ -72,7 +64,7 @@ class ElevforholdServiceTest {
 
 
     @Test
-    public void shouldReturnEmptyWhenElevforholdNotValid() {
+    public void shouldReturnEvenThoughElevforholdNotValid() {
         Link link = Link.with("systemId/elevforhold/123");
         List<Link> elevforholdLinks = Collections.singletonList(link);
 
@@ -82,11 +74,10 @@ class ElevforholdServiceTest {
 
         when(elevforholdResourceCache.getOptional("systemid/elevforhold/123"))
                 .thenReturn(Optional.of(invalidElevforhold));
-        when(gyldighetsperiodeService.isValid(any(), any(), anyInt())).thenReturn(false);
 
         Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
 
-        assertThat(result).isEmpty();
+        assertThat(result).isPresent().contains(invalidElevforhold);
     }
 
     @Test
@@ -98,7 +89,7 @@ class ElevforholdServiceTest {
         when(skoleResourceCache.getOptional("systemid/skole/123"))
                 .thenReturn(Optional.of(expectedSkole));
 
-        Optional<SkoleResource> result = elevforholdService.getSkole(elevforhold, currentTime);
+        Optional<SkoleResource> result = elevforholdService.getSkole(elevforhold);
 
         assertThat(result).isPresent().contains(expectedSkole);
     }
@@ -112,7 +103,7 @@ class ElevforholdServiceTest {
         when(organisasjonselementResourceCache.get(anyString()))
                 .thenReturn(expectedOrgUnit);
 
-        Optional<OrganisasjonselementResource> result = elevforholdService.getSkoleOrgUnit(skoleResource, currentTime);
+        Optional<OrganisasjonselementResource> result = elevforholdService.getSkoleOrgUnit(skoleResource);
 
         assertThat(result).isPresent().contains(expectedOrgUnit);
     }

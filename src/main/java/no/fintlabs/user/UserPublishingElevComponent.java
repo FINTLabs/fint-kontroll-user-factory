@@ -1,7 +1,6 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Kontaktinformasjon;
 import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.fint.model.resource.felles.PersonResource;
 import no.fint.model.resource.utdanning.elev.ElevResource;
@@ -17,6 +16,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.*;
+
+import static no.fintlabs.user.UserUtils.createInvalidUser;
 
 @Slf4j
 @Component
@@ -72,42 +73,42 @@ public class UserPublishingElevComponent {
     private Optional<User> createUser(ElevResource elevResource, Date currentTime) {
         String hrefSelfLink = ResourceLinkUtil.getFirstSelfLink(elevResource);
         String resourceId = hrefSelfLink.substring(hrefSelfLink.lastIndexOf("/") + 1);
-        boolean isUserOnKafka = UserUtils.isUserAlreadyOnKafka(resourceId);
+        boolean isValidUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
 
         Optional<PersonResource> personResourceOptional = personUtdanningService
                 .getPersonUtdanning(elevResource);
         if (personResourceOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
-            return Optional.empty();
+            log.debug("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
+            return createInvalidUser(resourceId);
         }
 
 
         Optional<ElevforholdResource> elevforholdOptional =
                 elevforholdService.getElevforhold(elevResource.getElevforhold(), currentTime);
         if (elevforholdOptional.isEmpty()) {
-            log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
-            return Optional.empty();
+            log.debug("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
+            return createInvalidUser(resourceId);
         }
 
         Optional<SkoleResource> skoleOptional = elevforholdOptional
-                .flatMap(elevforhold -> elevforholdService.getSkole(elevforhold, currentTime));
+                .flatMap(elevforholdService::getSkole);
         if (skoleOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
-            return Optional.empty();
+            log.debug("Creating user (student) failed, resourceId={}, missing skole", resourceId);
+            return createInvalidUser(resourceId);
         }
 
         Optional<OrganisasjonselementResource> skoleOrgUnitOptional = skoleOptional
-                .flatMap(skole -> elevforholdService.getSkoleOrgUnit(skole, currentTime));
+                .flatMap(elevforholdService::getSkoleOrgUnit);
         if (skoleOrgUnitOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
-            return Optional.empty();
+            log.debug("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
+            return createInvalidUser(resourceId);
         }
 
         //Azure attributes
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
-        if (azureUserAttributes.isEmpty() && !isUserOnKafka) {
-            log.info("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
-            return Optional.empty();
+        if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
+            log.debug("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
+            return createInvalidUser(resourceId);
         }
 
         //TODO: move to separate method
@@ -126,12 +127,11 @@ public class UserPublishingElevComponent {
         Date validFrom = elevforholdOptional.get().getGyldighetsperiode().getStart();
         Date validTo = elevforholdOptional.get().getGyldighetsperiode().getSlutt();
 
-        Date statusChanged = fintStatus.equals("ACTIVE") ? validFrom : validTo;
+        Date statusChanged = fintStatus.equals(UserStatus.ACTIVE) ? validFrom : validTo;
 
 
         return Optional.of(
                 createUser(
-                        elevResource,
                         personResourceOptional.get(),
                         skoleOrgUnitOptional.get().getOrganisasjonsnavn(),
                         skoleOrgUnitOptional.get().getOrganisasjonsId().getIdentifikatorverdi(),
@@ -146,9 +146,8 @@ public class UserPublishingElevComponent {
         );
     }
 
-    private User createUser(
-            ElevResource elevResource,
-            PersonResource personResource,
+
+    private User createUser(PersonResource personResource,
             String organisasjonsnavn,
             String organisasjonsId,
             Map<String, String> azureUserAttributes,
@@ -159,14 +158,8 @@ public class UserPublishingElevComponent {
             Date validTo
     ) {
 
-
-//        String mobilePhone = Optional.ofNullable(personResource.getKontaktinformasjon())
-//                .map(Kontaktinformasjon::getMobiltelefonnummer)
-//                .orElse("");
-
-
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals("ACTIVE")
-                && fintStatus.equals("ACTIVE") ? "ACTIVE" : "DISABLED";
+        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserStatus.ACTIVE)
+                && fintStatus.equals(UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.DISABLED;
 
         log.info("Creating user (student) with resourceId: {}", resourceId);
 
@@ -177,7 +170,6 @@ public class UserPublishingElevComponent {
                 .userType(String.valueOf(UserUtils.UserType.STUDENT))
                 .mainOrganisationUnitName(organisasjonsnavn)
                 .mainOrganisationUnitId(organisasjonsId)
-                .mobilePhone(null)
                 .identityProviderUserObjectId(UUID.fromString(azureUserAttributes.getOrDefault("identityProviderUserObjectId", "0-0-0-0-0")))
                 .email(azureUserAttributes.getOrDefault("email", ""))
                 .userName(azureUserAttributes.getOrDefault("userName", ""))

@@ -195,7 +195,7 @@ public class EntityConsumersConfiguration {
 
     @Bean
     ConcurrentMessageListenerContainer<String,User> userResourceEntityConsumer(
-            FintCache<String,User> publishUserCache
+            FintCache<String, User> publishUserCache
     ){
         return entityConsumerFactoryService.createFactory(
                 User.class,

@@ -11,38 +11,17 @@ import java.util.Date;
 @Slf4j
 public class GyldighetsperiodeService {
 
-    public static class NullPeriodeException extends RuntimeException {
-    }
-
-//    public boolean isValid(Periode gyldighetsperiode, Date currentTime) {
-//        if (gyldighetsperiode == null) {
-//            throw new NullPeriodeException();
-//        }
-//
-//        Date startInit = gyldighetsperiode.getStart();
-//        Date start = getStartDate(startInit,daysBeforeStart);
-//
-//        return currentTime.after(start)
-//                && isEndValid(gyldighetsperiode.getSlutt(), currentTime);
-//    }
-
     public boolean isValid(Periode gyldighetsperiode, Date currentTime, int days) {
         if (gyldighetsperiode == null) {
             throw new NullPeriodeException();
         }
         Date startInit = gyldighetsperiode.getStart();
-        Date start = getStartDate(startInit,days);
-
-
-
+        Date start = getStartDate(startInit, days);
         return currentTime.after(start)
                 && isEndValid(gyldighetsperiode.getSlutt(), currentTime);
-
     }
 
-
     private boolean isEndValid(Date end, Date currentTime) {
-
         return end == null || currentTime.before(end);
     }
 
@@ -50,8 +29,10 @@ public class GyldighetsperiodeService {
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(date);
         calendar.add(Calendar.DATE, -daysBeforeStart);
-
         return calendar.getTime();
+    }
+
+    public static class NullPeriodeException extends RuntimeException {
     }
 
 }
