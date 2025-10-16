@@ -73,7 +73,7 @@ public class UserPublishingComponent {
     private Optional<User> createUser(PersonalressursResource personalressursResource, Date currentTime) {
 
         String resourceId = personalressursService.getResourceId(personalressursResource);
-        boolean isUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
+        boolean isValidUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
 
         Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
         if (personResourceOptional.isEmpty()) {
@@ -116,7 +116,7 @@ public class UserPublishingComponent {
 
         //Azure attributes
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
-        if (azureUserAttributes.isEmpty() && !isUserOnKafka) {
+        if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
             log.info("Creating user failed, resourceId={}, missing azureUserAttributes", resourceId);
             return createInvalidUser(resourceId);
         }
