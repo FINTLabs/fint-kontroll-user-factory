@@ -125,7 +125,7 @@ public class UserPublishingComponent {
             User userOnKafka = UserUtils.getUserFromKafka(resourceId);
             attributes.put("email", userOnKafka.getEmail());
             attributes.put("userName", userOnKafka.getUserName());
-            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
+            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId() != null ? userOnKafka.getIdentityProviderUserObjectId().toString() : null);
             attributes.put("azureStatus", userOnKafka.getStatus());
             azureUserAttributes = Optional.of(attributes);
         }
