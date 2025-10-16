@@ -118,7 +118,7 @@ public class UserPublishingComponent {
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
         if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
             log.info("Creating user failed, resourceId={}, missing azureUserAttributes", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty();
         }
         if (azureUserAttributes.isEmpty()) {
             Map<String, String> attributes = new HashMap<>();

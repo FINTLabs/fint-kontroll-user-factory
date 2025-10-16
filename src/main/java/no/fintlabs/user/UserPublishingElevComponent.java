@@ -108,7 +108,7 @@ public class UserPublishingElevComponent {
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
         if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
             log.debug("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty();
         }
 
         //TODO: move to separate method
