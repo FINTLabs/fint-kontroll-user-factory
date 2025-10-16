@@ -73,9 +73,12 @@ public class UserUtils {
         return status;
     }
 
+
     public static boolean isValidUserOnKafka(String resourceId) {
-        Optional<User> cashedUser = publishUserCache.getOptional(resourceId);
-        return cashedUser.stream().noneMatch(user -> UserStatus.INVALID.equals(user.getStatus()));
+        return publishUserCache
+                .getOptional(resourceId)
+                .map(user -> !UserStatus.INVALID.equals(user.getStatus()))
+                .orElse(false);
     }
 
     //TODO: Skrive om slik at den logger om bruker er på kafka eller ikke
