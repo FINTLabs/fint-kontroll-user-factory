@@ -79,7 +79,7 @@ public class UserPublishingElevComponent {
                 .getPersonUtdanning(elevResource);
         if (personResourceOptional.isEmpty()) {
             log.debug("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty();
         }
 
 

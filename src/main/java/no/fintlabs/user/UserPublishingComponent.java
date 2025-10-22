@@ -78,7 +78,7 @@ public class UserPublishingComponent {
         Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
         if (personResourceOptional.isEmpty()) {
             log.debug("Creating user failed, resourceId={}, missing personResource", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty();
         }
 
         //Hovedstilling eller stilling med høyest stillingsprosent hvis hovedstilling ikke er spesifisert
