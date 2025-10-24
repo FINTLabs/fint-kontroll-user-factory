@@ -77,7 +77,7 @@ public class UserPublishingComponent {
 
         Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
         if (personResourceOptional.isEmpty()) {
-            log.debug("Creating user failed, resourceId={}, missing personResource", resourceId);
+            log.warn("Creating user failed, resourceId={}, missing personResource", resourceId);
             return Optional.empty();
         }
 

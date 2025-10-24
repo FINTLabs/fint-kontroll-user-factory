@@ -78,7 +78,7 @@ public class UserPublishingElevComponent {
         Optional<PersonResource> personResourceOptional = personUtdanningService
                 .getPersonUtdanning(elevResource);
         if (personResourceOptional.isEmpty()) {
-            log.debug("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
+            log.warn("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
             return Optional.empty();
         }
 
@@ -86,28 +86,28 @@ public class UserPublishingElevComponent {
         Optional<ElevforholdResource> elevforholdOptional =
                 elevforholdService.getElevforhold(elevResource.getElevforhold(), currentTime);
         if (elevforholdOptional.isEmpty()) {
-            log.debug("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
+            log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
             return createInvalidUser(resourceId);
         }
 
         Optional<SkoleResource> skoleOptional = elevforholdOptional
                 .flatMap(elevforholdService::getSkole);
         if (skoleOptional.isEmpty()) {
-            log.debug("Creating user (student) failed, resourceId={}, missing skole", resourceId);
+            log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
             return createInvalidUser(resourceId);
         }
 
         Optional<OrganisasjonselementResource> skoleOrgUnitOptional = skoleOptional
                 .flatMap(elevforholdService::getSkoleOrgUnit);
         if (skoleOrgUnitOptional.isEmpty()) {
-            log.debug("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
+            log.info("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
             return createInvalidUser(resourceId);
         }
 
         //Azure attributes
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
         if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
-            log.debug("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
+            log.info("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
             return Optional.empty();
         }
 
