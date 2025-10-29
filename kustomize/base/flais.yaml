@@ -9,9 +9,9 @@ spec:
   imagePullPolicy: Always
   env:
     - name: fint.kontroll.user.publishing.initial-delay
-      value: '20000'
+      value: '200000'
     - name: fint.kontroll.user.publishing.initial-delay-elev
-      value: '30000'
+      value: '300000'
     - name: fint.kontroll.user.publishing.fixed-delay
       value: '300000'
     - name: spring.kafka.consumer.group-id
