@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.Objects;
 import java.util.Optional;
 
 @Component
@@ -39,13 +38,14 @@ public class UserUtils {
     private void setDaysBeforeStartStudent(int daysBeforeStartStudent) {
         DAYS_BEFORE_START_STUDENT = daysBeforeStartStudent;
     }
-    @Value("${fint.kontroll.user.days-before-start-employee}")
-    private void setDaysBeforeStartEmployee(int daysBeforeStartEmployee) {
-        DAYS_BEFORE_START_EMPLOYEE = daysBeforeStartEmployee;
-    }
 
     public static int getDaysBeforeStartEmployee() {
         return DAYS_BEFORE_START_EMPLOYEE;
+    }
+
+    @Value("${fint.kontroll.user.days-before-start-employee}")
+    private void setDaysBeforeStartEmployee(int daysBeforeStartEmployee) {
+        DAYS_BEFORE_START_EMPLOYEE = daysBeforeStartEmployee;
     }
 
     public static String getFINTAnsattStatus(PersonalressursResource personalressursResource, Date currentTime) {
@@ -62,15 +62,17 @@ public class UserUtils {
     }
 
     public static String getFINTElevStatus(ElevforholdResource elevforhold, Date currentTime) {
-        String resoursID = elevforhold.getSystemId().getIdentifikatorverdi();
+        String resourceId = elevforhold.getSystemId().getIdentifikatorverdi();
         Periode gyldighetsperiode = elevforhold.getGyldighetsperiode();
-        String status = gyldighetsperiodeService.isValid(gyldighetsperiode, currentTime, getDaysBeforeStartStudent())
-                ? UserStatus.ACTIVE
-                : UserStatus.DISABLED;
+        String status = isPeriodActive(gyldighetsperiode, currentTime) ? UserStatus.ACTIVE : UserStatus.DISABLED;
 
-        log.debug("Systemid: {} stop: {} Status: {}", resoursID, elevforhold.getGyldighetsperiode().getSlutt(), status);
+        log.debug("Systemid: {} stop: {} Status: {}", resourceId, elevforhold.getGyldighetsperiode().getSlutt(), status);
 
         return status;
+    }
+
+    public static boolean isPeriodActive(Periode gyldighetsperiode, Date time) {
+        return gyldighetsperiodeService.isValid(gyldighetsperiode, time, getDaysBeforeStartStudent());
     }
 
 
@@ -89,21 +91,20 @@ public class UserUtils {
         return userFromKafka.orElse(null);
     }
 
+    public static Optional<User> createInvalidUser(String resourceId) {
+        return Optional.of(User.builder().resourceId(resourceId).status(UserStatus.INVALID).build());
+    }
+
     @Value("${fint.kontroll.user.days-before-start-employee}")
     private void daysBeforeStartEmployee(int daysBeforeStartEmployee) {
         DAYS_BEFORE_START_EMPLOYEE = daysBeforeStartEmployee;
     }
-
 
     public enum UserType {
         EMPLOYEESTAFF,
         EMPLOYEEFACULTY,
         STUDENT,
         AFFILIATE
-    }
-
-    public static Optional<User> createInvalidUser(String resourceId) {
-        return Optional.of(User.builder().resourceId(resourceId).status(UserStatus.INVALID).build());
     }
 
 }

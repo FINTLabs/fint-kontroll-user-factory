@@ -1,6 +1,7 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
+import no.fint.model.felles.kompleksedatatyper.Periode;
 import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.fint.model.resource.felles.PersonResource;
 import no.fint.model.resource.utdanning.elev.ElevResource;
@@ -82,15 +83,15 @@ public class UserPublishingElevComponent {
             return Optional.empty();
         }
 
+        List<ElevforholdResource> allLinkedElevForholds = elevforholdService.getAllForElev(elevResource.getElevforhold());
+        Optional<ElevforholdResource> mainElevForholdOptional = elevforholdService.getMainElevforhold(allLinkedElevForholds, currentTime);
 
-        Optional<ElevforholdResource> elevforholdOptional =
-                elevforholdService.getElevforhold(elevResource.getElevforhold(), currentTime);
-        if (elevforholdOptional.isEmpty()) {
+        if (mainElevForholdOptional.isEmpty()) {
             log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
             return createInvalidUser(resourceId);
         }
 
-        Optional<SkoleResource> skoleOptional = elevforholdOptional
+        Optional<SkoleResource> skoleOptional = mainElevForholdOptional
                 .flatMap(elevforholdService::getSkole);
         if (skoleOptional.isEmpty()) {
             log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
@@ -122,10 +123,10 @@ public class UserPublishingElevComponent {
             azureUserAttributes = Optional.of(attributes);
         }
 
-        String fintStatus = UserUtils.getFINTElevStatus(elevforholdOptional.get(), currentTime);
+        String fintStatus = UserUtils.getFINTElevStatus(mainElevForholdOptional.get(), currentTime);
 
-        Date validFrom = elevforholdOptional.get().getGyldighetsperiode().getStart();
-        Date validTo = elevforholdOptional.get().getGyldighetsperiode().getSlutt();
+        Date validFrom = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getStart).min(Comparator.naturalOrder()).orElse(null);
+        Date validTo = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getSlutt).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
 
         Date statusChanged = fintStatus.equals(UserStatus.ACTIVE) ? validFrom : validTo;
 

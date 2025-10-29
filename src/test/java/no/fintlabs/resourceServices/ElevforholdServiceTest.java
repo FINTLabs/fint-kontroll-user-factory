@@ -44,7 +44,7 @@ class ElevforholdServiceTest {
     public void shouldReturnEmptyWhenNoValidElevforholdLinks() {
         List<Link> elevforholdLinks = Collections.emptyList();
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
 
         assertThat(result).isEmpty();
     }
@@ -57,9 +57,9 @@ class ElevforholdServiceTest {
         resource.setGyldighetsperiode(periode);
         when(elevforholdResourceCache.getOptional(anyString())).thenReturn(Optional.of(resource));
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(List.of(link), currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(List.of(link));
 
-        assertThat(result).isPresent().contains(resource);
+        assertThat(result).contains(resource);
     }
 
 
@@ -75,9 +75,9 @@ class ElevforholdServiceTest {
         when(elevforholdResourceCache.getOptional("systemid/elevforhold/123"))
                 .thenReturn(Optional.of(invalidElevforhold));
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
 
-        assertThat(result).isPresent().contains(invalidElevforhold);
+        assertThat(result).contains(invalidElevforhold);
     }
 
     @Test
@@ -118,7 +118,7 @@ class ElevforholdServiceTest {
         when(elevforholdResourceCache.getOptional("systemid/elevforhold/123"))
                 .thenReturn(Optional.of(elevforholdWithoutPeriode));
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
 
         assertThat(result).isEmpty();
     }
