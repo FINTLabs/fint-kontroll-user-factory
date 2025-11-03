@@ -12,6 +12,9 @@ import java.util.Date;
 public class GyldighetsperiodeService {
 
     public boolean isValid(Periode gyldighetsperiode, Date currentTime, int days) {
+        if (gyldighetsperiode == null) {
+            throw new NullPeriodeException();
+        }
         Date startInit = gyldighetsperiode.getStart();
         Date start = getStartDate(startInit, days);
         return currentTime.after(start)
