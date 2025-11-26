@@ -2,7 +2,7 @@ fint:
   org-id: ''
   application-id: fint-kontroll-user-factory
   cache:
-    defaultCacheEntryTimeToLiveMillis: 518400000
+    defaultCacheEntryTimeToLiveMillis: 604800000
     defaultCacheHeapSize: 1000000
   kafka:
     topic:
@@ -11,12 +11,11 @@ fint:
     application-id: ${fint.application-id}
     default-replicas: 1
   kontroll:
-#    days-before-start: 0
     user:
       publishing:
         initial-delay: 20000
         initial-delay-elev: 30000
-        fixed-delay: 900000
+        fixed-delay: 3600000
       days-before-start-employee: 10
       days-before-start-student: 5
 spring:
