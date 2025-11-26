@@ -12,15 +12,12 @@ import java.util.List;
 @Service
 public class ElevService {
     private final FintCache<String, ElevResource> elevResourceCache;
-    private final GyldighetsperiodeService gyldighetsperiodeService;
 
 
     public ElevService(
-            FintCache<String, ElevResource> elevResourceCache,
-            GyldighetsperiodeService gyldighetsperiodeService
+            FintCache<String, ElevResource> elevResourceCache
     ) {
         this.elevResourceCache = elevResourceCache;
-        this.gyldighetsperiodeService = gyldighetsperiodeService;
     }
 
     public List<ElevResource> getAllEleverWithElevforhold(Date currentTime){

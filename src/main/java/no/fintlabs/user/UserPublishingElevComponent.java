@@ -1,7 +1,7 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Kontaktinformasjon;
+import no.fint.model.felles.kompleksedatatyper.Periode;
 import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.fint.model.resource.felles.PersonResource;
 import no.fint.model.resource.utdanning.elev.ElevResource;
@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.*;
+
+import static no.fintlabs.user.UserUtils.createInvalidUser;
 
 @Slf4j
 @Component
@@ -59,7 +61,7 @@ public class UserPublishingElevComponent {
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
         log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOFElevforholdInCache());
         log.info("Number og users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
-        log.info("Published {} of {} valid students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
+        log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
                 publishedElevUsers.stream()
                         .map(User::getResourceId)
@@ -72,40 +74,40 @@ public class UserPublishingElevComponent {
     private Optional<User> createUser(ElevResource elevResource, Date currentTime) {
         String hrefSelfLink = ResourceLinkUtil.getFirstSelfLink(elevResource);
         String resourceId = hrefSelfLink.substring(hrefSelfLink.lastIndexOf("/") + 1);
-        boolean isUserOnKafka = UserUtils.isUserAlreadyOnKafka(resourceId);
+        boolean isValidUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
 
         Optional<PersonResource> personResourceOptional = personUtdanningService
                 .getPersonUtdanning(elevResource);
         if (personResourceOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
+            log.warn("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
             return Optional.empty();
         }
 
+        List<ElevforholdResource> allLinkedElevForholds = elevforholdService.getAllForElev(elevResource.getElevforhold());
+        Optional<ElevforholdResource> mainElevForholdOptional = elevforholdService.getMainElevforhold(allLinkedElevForholds, currentTime);
 
-        Optional<ElevforholdResource> elevforholdOptional =
-                elevforholdService.getElevforhold(elevResource.getElevforhold(), currentTime);
-        if (elevforholdOptional.isEmpty()) {
+        if (mainElevForholdOptional.isEmpty()) {
             log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
-            return Optional.empty();
+            return createInvalidUser(resourceId);
         }
 
-        Optional<SkoleResource> skoleOptional = elevforholdOptional
-                .flatMap(elevforhold -> elevforholdService.getSkole(elevforhold, currentTime));
+        Optional<SkoleResource> skoleOptional = mainElevForholdOptional
+                .flatMap(elevforholdService::getSkole);
         if (skoleOptional.isEmpty()) {
             log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
-            return Optional.empty();
+            return createInvalidUser(resourceId);
         }
 
         Optional<OrganisasjonselementResource> skoleOrgUnitOptional = skoleOptional
-                .flatMap(skole -> elevforholdService.getSkoleOrgUnit(skole, currentTime));
+                .flatMap(elevforholdService::getSkoleOrgUnit);
         if (skoleOrgUnitOptional.isEmpty()) {
             log.info("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
-            return Optional.empty();
+            return createInvalidUser(resourceId);
         }
 
         //Azure attributes
         Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
-        if (azureUserAttributes.isEmpty() && !isUserOnKafka) {
+        if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
             log.info("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
             return Optional.empty();
         }
@@ -121,17 +123,16 @@ public class UserPublishingElevComponent {
             azureUserAttributes = Optional.of(attributes);
         }
 
-        String fintStatus = UserUtils.getFINTElevStatus(elevforholdOptional.get(), currentTime);
+        String fintStatus = UserUtils.getFINTElevStatus(mainElevForholdOptional.get(), currentTime);
 
-        Date validFrom = elevforholdOptional.get().getGyldighetsperiode().getStart();
-        Date validTo = elevforholdOptional.get().getGyldighetsperiode().getSlutt();
+        Date validFrom = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getStart).min(Comparator.naturalOrder()).orElse(null);
+        Date validTo = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getSlutt).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
 
-        Date statusChanged = fintStatus.equals("ACTIVE") ? validFrom : validTo;
+        Date statusChanged = fintStatus.equals(UserStatus.ACTIVE) ? validFrom : validTo;
 
 
         return Optional.of(
                 createUser(
-                        elevResource,
                         personResourceOptional.get(),
                         skoleOrgUnitOptional.get().getOrganisasjonsnavn(),
                         skoleOrgUnitOptional.get().getOrganisasjonsId().getIdentifikatorverdi(),
@@ -146,9 +147,8 @@ public class UserPublishingElevComponent {
         );
     }
 
-    private User createUser(
-            ElevResource elevResource,
-            PersonResource personResource,
+
+    private User createUser(PersonResource personResource,
             String organisasjonsnavn,
             String organisasjonsId,
             Map<String, String> azureUserAttributes,
@@ -159,14 +159,8 @@ public class UserPublishingElevComponent {
             Date validTo
     ) {
 
-
-//        String mobilePhone = Optional.ofNullable(personResource.getKontaktinformasjon())
-//                .map(Kontaktinformasjon::getMobiltelefonnummer)
-//                .orElse("");
-
-
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals("ACTIVE")
-                && fintStatus.equals("ACTIVE") ? "ACTIVE" : "DISABLED";
+        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserStatus.ACTIVE)
+                && fintStatus.equals(UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.DISABLED;
 
         log.info("Creating user (student) with resourceId: {}", resourceId);
 
@@ -177,7 +171,6 @@ public class UserPublishingElevComponent {
                 .userType(String.valueOf(UserUtils.UserType.STUDENT))
                 .mainOrganisationUnitName(organisasjonsnavn)
                 .mainOrganisationUnitId(organisasjonsId)
-                .mobilePhone(null)
                 .identityProviderUserObjectId(UUID.fromString(azureUserAttributes.getOrDefault("identityProviderUserObjectId", "0-0-0-0-0")))
                 .email(azureUserAttributes.getOrDefault("email", ""))
                 .userName(azureUserAttributes.getOrDefault("userName", ""))

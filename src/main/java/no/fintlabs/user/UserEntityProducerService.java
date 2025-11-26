@@ -33,7 +33,8 @@ public class UserEntityProducerService {
     }
 
     public List<User> publishChangedUsers(List<User> users) {
-        List<User> list = users
+
+        return users
                 .stream()
                 .filter(user -> publishedUserCache
                         .getOptional(user.getResourceId())
@@ -42,8 +43,6 @@ public class UserEntityProducerService {
                 )
                 .peek(this::publishChangedUsers)
                 .toList();
-
-        return list;
 
     }
 

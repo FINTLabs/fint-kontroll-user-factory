@@ -11,11 +11,10 @@ fint:
     application-id: ${fint.application-id}
     default-replicas: 1
   kontroll:
-#    days-before-start: 0
     user:
       publishing:
-        initial-delay: 20000
-        initial-delay-elev: 30000
+        initial-delay: 200000
+        initial-delay-elev: 300000
         fixed-delay: 900000
       days-before-start-employee: 10
       days-before-start-student: 5
