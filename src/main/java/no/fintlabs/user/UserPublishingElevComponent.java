@@ -58,7 +58,7 @@ public class UserPublishingElevComponent {
         List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allValidElevUsers);
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
         log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOFElevforholdInCache());
-        log.info("Number og users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
+        log.info("Number of users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
         log.info("Published {} of {} valid students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
                 publishedElevUsers.stream()
@@ -116,7 +116,7 @@ public class UserPublishingElevComponent {
             User userOnKafka = UserUtils.getUserFromKafka(resourceId);
             attributes.put("email", userOnKafka.getEmail());
             attributes.put("userName", userOnKafka.getUserName());
-            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
+            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId() != null ? userOnKafka.getIdentityProviderUserObjectId().toString() : null);
             attributes.put("azureStatus", userOnKafka.getStatus());
             azureUserAttributes = Optional.of(attributes);
         }
