@@ -13,7 +13,7 @@ spec:
     - name: fint.kontroll.user.publishing.initial-delay-elev
       value: '30000'
     - name: fint.kontroll.user.publishing.fixed-delay
-      value: '300000'
+      value: '3600000'
     - name: spring.kafka.consumer.group-id
       value: 'fint-kontroll-user-factory'
     - name: JAVA_TOOL_OPTIONS

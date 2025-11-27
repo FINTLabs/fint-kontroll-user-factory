@@ -20,9 +20,8 @@ import java.util.Optional;
 @Service
 public class ElevforholdService {
 
-//    @Value("${fint.kontroll.user.days-before-start-student:0}")
-
-    private static int daysBeforeStartStudent = UserUtils.DAYS_BEFORE_START_STUDENT;
+   @Value("${fint.kontroll.user.days-before-start-student:0}")
+    private int daysBeforeStartStudent;
 
 
     private final GyldighetsperiodeService gyldighetsperiodeService;
@@ -80,9 +79,9 @@ public class ElevforholdService {
         if (elevforholdResource.getGyldighetsperiode() != null) {
             boolean isGyldighetsperiodeValid = gyldighetsperiodeService.isValid(
                     elevforholdResource.getGyldighetsperiode(),
-                    currentTime,daysBeforeStartStudent);
+                    currentTime, daysBeforeStartStudent);
             log.info("Gydlighetsperiode for elevforhold is not null. Gyldighetsperiode is valid: {}. Days-before-start is: {}"
-                    ,isGyldighetsperiodeValid,daysBeforeStartStudent);
+                    ,isGyldighetsperiodeValid, daysBeforeStartStudent);
             return isGyldighetsperiodeValid;
         } else  {
             log.info("Gyldighetsperiode for elevforhold is null");
