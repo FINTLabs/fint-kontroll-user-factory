@@ -59,7 +59,7 @@ public class UserPublishingElevComponent {
 
         List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allValidElevUsers);
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
-        log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOFElevforholdInCache());
+        log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOfElevforholdInCache());
         log.info("Number of users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
         log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
@@ -80,7 +80,7 @@ public class UserPublishingElevComponent {
                 .getPersonUtdanning(elevResource);
         if (personResourceOptional.isEmpty()) {
             log.warn("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
-            return Optional.empty();
+            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
         }
 
         List<ElevforholdResource> allLinkedElevForholds = elevforholdService.getAllForElev(elevResource.getElevforhold());
@@ -88,21 +88,21 @@ public class UserPublishingElevComponent {
 
         if (mainElevForholdOptional.isEmpty()) {
             log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
         }
 
         Optional<SkoleResource> skoleOptional = mainElevForholdOptional
                 .flatMap(elevforholdService::getSkole);
         if (skoleOptional.isEmpty()) {
             log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
         }
 
         Optional<OrganisasjonselementResource> skoleOrgUnitOptional = skoleOptional
                 .flatMap(elevforholdService::getSkoleOrgUnit);
         if (skoleOrgUnitOptional.isEmpty()) {
             log.info("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty();
         }
 
         //Azure attributes

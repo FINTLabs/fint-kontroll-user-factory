@@ -78,7 +78,7 @@ public class UserPublishingComponent {
         Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
         if (personResourceOptional.isEmpty()) {
             log.warn("Creating user failed, resourceId={}, missing personResource", resourceId);
-            return Optional.empty();
+            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
         }
 
         //Hovedstilling eller stilling med høyest stillingsprosent hvis hovedstilling ikke er spesifisert
@@ -87,7 +87,7 @@ public class UserPublishingComponent {
 
         if (hovedArbeidsforholdOptional.isEmpty()) {
             log.debug("Creating user failed, resourceId={}, missing arbeidsforhold", resourceId);
-            return createInvalidUser(resourceId);
+            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
         }
 
         Optional<OrganisasjonselementResource> hovedArbeidsstedOptional = hovedArbeidsforholdOptional
