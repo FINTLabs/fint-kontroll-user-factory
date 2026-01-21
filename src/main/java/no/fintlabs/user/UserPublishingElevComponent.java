@@ -18,8 +18,6 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.*;
 
-import static no.fintlabs.user.UserUtils.createInvalidUser;
-
 @Slf4j
 @Component
 public class UserPublishingElevComponent {
@@ -118,7 +116,9 @@ public class UserPublishingElevComponent {
             User userOnKafka = UserUtils.getUserFromKafka(resourceId);
             attributes.put("email", userOnKafka.getEmail());
             attributes.put("userName", userOnKafka.getUserName());
-            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId() != null ? userOnKafka.getIdentityProviderUserObjectId().toString() : "0-0-0-0-0");
+            if (userOnKafka.getIdentityProviderUserObjectId() != null) {
+                attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
+            }
             attributes.put("azureStatus", userOnKafka.getStatus());
             azureUserAttributes = Optional.of(attributes);
         }

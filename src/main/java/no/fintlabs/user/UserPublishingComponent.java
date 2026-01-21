@@ -18,8 +18,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static no.fintlabs.user.UserUtils.createInvalidUser;
-
 @Slf4j
 @Component
 public class UserPublishingComponent {
@@ -125,7 +123,9 @@ public class UserPublishingComponent {
             User userOnKafka = UserUtils.getUserFromKafka(resourceId);
             attributes.put("email", userOnKafka.getEmail());
             attributes.put("userName", userOnKafka.getUserName());
-            attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId() != null ? userOnKafka.getIdentityProviderUserObjectId().toString() : null);
+            if (userOnKafka.getIdentityProviderUserObjectId() != null) {
+                attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
+            }
             attributes.put("azureStatus", userOnKafka.getStatus());
             azureUserAttributes = Optional.of(attributes);
         }
