@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -23,8 +24,7 @@ public class User {
     private UUID identityProviderUserObjectId;
     private String mainOrganisationUnitName;
     private String mainOrganisationUnitId;
-    private List<String> organisationUnitIds;
-    private String mobilePhone;
+    private Set<String> organisationUnitIds;
     private String email;
     private String managerRef;
     private String status;

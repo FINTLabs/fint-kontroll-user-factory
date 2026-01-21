@@ -4,6 +4,7 @@ import no.fint.model.felles.kompleksedatatyper.Identifikator;
 import no.fint.model.felles.kompleksedatatyper.Periode;
 import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
 import no.fintlabs.resourceServices.GyldighetsperiodeService;
+import no.fintlabs.user.UserStatus;
 import no.fintlabs.user.UserUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,7 +64,7 @@ class GetUserStatusTest {
         Date currentTime = Date.from(Instant.now());
         String statusFromGetUserStatus = UserUtils.getFINTAnsattStatus(personalressursResource,currentTime);
 
-        assertThat(statusFromGetUserStatus).isEqualTo("DISABLED");
+        assertThat(statusFromGetUserStatus).isEqualTo(UserStatus.DISABLED);
 
         System.out.println("getUserStatus returns: " + statusFromGetUserStatus);
     }

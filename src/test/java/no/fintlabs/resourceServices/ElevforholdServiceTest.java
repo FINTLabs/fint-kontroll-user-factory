@@ -1,6 +1,5 @@
 package no.fintlabs.resourceServices;
 
-import no.fint.model.felles.kompleksedatatyper.Identifikator;
 import no.fint.model.felles.kompleksedatatyper.Periode;
 import no.fint.model.resource.Link;
 import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
@@ -12,19 +11,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ElevforholdServiceTest {
-
-    @Mock
-    private GyldighetsperiodeService gyldighetsperiodeService;
 
     @Mock
     private FintCache<String, ElevforholdResource> elevforholdResourceCache;
@@ -42,15 +37,14 @@ class ElevforholdServiceTest {
     @BeforeEach
     void init() {
         currentTime = new Date();
-        elevforholdService = new ElevforholdService(gyldighetsperiodeService, elevforholdResourceCache, skoleResourceCache, organisasjonselementResourceCache);
-        ReflectionTestUtils.setField(elevforholdService, "daysBeforeStartStudent", 0);
+        elevforholdService = new ElevforholdService(elevforholdResourceCache, skoleResourceCache, organisasjonselementResourceCache);
     }
 
     @Test
     public void shouldReturnEmptyWhenNoValidElevforholdLinks() {
         List<Link> elevforholdLinks = Collections.emptyList();
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
 
         assertThat(result).isEmpty();
     }
@@ -62,17 +56,15 @@ class ElevforholdServiceTest {
         Periode periode = new Periode();
         resource.setGyldighetsperiode(periode);
         when(elevforholdResourceCache.getOptional(anyString())).thenReturn(Optional.of(resource));
-        when(gyldighetsperiodeService.isValid(eq(periode), eq(currentTime), anyInt()))
-                .thenReturn(true);
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(List.of(link), currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(List.of(link));
 
-        assertThat(result).isPresent().contains(resource);
+        assertThat(result).contains(resource);
     }
 
 
     @Test
-    public void shouldReturnEmptyWhenElevforholdNotValid() {
+    public void shouldReturnEvenThoughElevforholdNotValid() {
         Link link = Link.with("systemId/elevforhold/123");
         List<Link> elevforholdLinks = Collections.singletonList(link);
 
@@ -82,11 +74,10 @@ class ElevforholdServiceTest {
 
         when(elevforholdResourceCache.getOptional("systemid/elevforhold/123"))
                 .thenReturn(Optional.of(invalidElevforhold));
-        when(gyldighetsperiodeService.isValid(any(), any(), anyInt())).thenReturn(false);
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
 
-        assertThat(result).isEmpty();
+        assertThat(result).contains(invalidElevforhold);
     }
 
     @Test
@@ -98,7 +89,7 @@ class ElevforholdServiceTest {
         when(skoleResourceCache.getOptional("systemid/skole/123"))
                 .thenReturn(Optional.of(expectedSkole));
 
-        Optional<SkoleResource> result = elevforholdService.getSkole(elevforhold, currentTime);
+        Optional<SkoleResource> result = elevforholdService.getSkole(elevforhold);
 
         assertThat(result).isPresent().contains(expectedSkole);
     }
@@ -112,7 +103,7 @@ class ElevforholdServiceTest {
         when(organisasjonselementResourceCache.get(anyString()))
                 .thenReturn(expectedOrgUnit);
 
-        Optional<OrganisasjonselementResource> result = elevforholdService.getSkoleOrgUnit(skoleResource, currentTime);
+        Optional<OrganisasjonselementResource> result = elevforholdService.getSkoleOrgUnit(skoleResource);
 
         assertThat(result).isPresent().contains(expectedOrgUnit);
     }
@@ -127,7 +118,105 @@ class ElevforholdServiceTest {
         when(elevforholdResourceCache.getOptional("systemid/elevforhold/123"))
                 .thenReturn(Optional.of(elevforholdWithoutPeriode));
 
-        Optional<ElevforholdResource> result = elevforholdService.getElevforhold(elevforholdLinks, currentTime);
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(elevforholdLinks);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getAllForElev_shouldReturnOnlyPresentAndWithGyldighetsperiode() {
+        ElevforholdResource withPeriod = elevforhold(daysFromNow(-10),
+                daysFromNow(10)
+        );
+        ElevforholdResource withoutPeriod = elevforholdWithoutPeriod();
+
+        List<Link> links = List.of(link("e1"), link("e2"), link("missing"));
+
+        when(elevforholdResourceCache.getOptional("e1")).thenReturn(Optional.of(withPeriod));
+        when(elevforholdResourceCache.getOptional("e2")).thenReturn(Optional.of(withoutPeriod));
+        when(elevforholdResourceCache.getOptional("missing")).thenReturn(Optional.empty());
+
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(links);
+
+        assertThat(result)
+                .hasSize(1)
+                .containsExactly(withPeriod);
+        verify(elevforholdResourceCache, times(1)).getOptional("e1");
+        verify(elevforholdResourceCache, times(1)).getOptional("e2");
+        verify(elevforholdResourceCache, times(1)).getOptional("missing");
+    }
+
+    @Test
+    void getAllForElev_shouldReturnEmptyWhenAllMissingOrWithoutPeriod() {
+        ElevforholdResource withoutPeriod = elevforholdWithoutPeriod();
+        List<Link> links = List.of(link("e2"), link("missing"));
+
+        when(elevforholdResourceCache.getOptional("e2")).thenReturn(Optional.of(withoutPeriod));
+        when(elevforholdResourceCache.getOptional("missing")).thenReturn(Optional.empty());
+
+        List<ElevforholdResource> result = elevforholdService.getAllForElev(links);
+
+        assertThat(result).isEmpty();
+    }
+
+
+    @Test
+    void getMainElevforhold_shouldReturnActiveNowIfPresent() {
+        ElevforholdResource activeNow = elevforhold(daysFromNow(-1), daysFromNow(1));
+
+        ElevforholdResource future = elevforhold(daysFromNow(10), daysFromNow(20));
+
+        Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
+                List.of(future, activeNow), currentTime);
+
+        assertThat(result).contains(activeNow);
+    }
+
+    @Test
+    void getMainElevforhold_shouldFallbackToFirstWhenNoneActive() {
+        ElevforholdResource past = elevforhold(daysFromNow(-20), daysFromNow(-10));
+        ElevforholdResource future = elevforhold(daysFromNow(10), daysFromNow(20));
+
+        Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
+                List.of(past, future), currentTime);
+
+        assertThat(result).contains(past);
+    }
+    private static Link link(String href) {
+        Link l = new Link();
+        l.setVerdi(href);
+        return l;
+    }
+
+    private static ElevforholdResource elevforhold(Date start, Date end) {
+        ElevforholdResource res = new ElevforholdResource();
+        res.setGyldighetsperiode(periode(start, end));
+        return res;
+    }
+
+    private static ElevforholdResource elevforholdWithoutPeriod() {
+        ElevforholdResource res = new ElevforholdResource();
+        res.setGyldighetsperiode(null);
+        return res;
+    }
+
+    private static Periode periode(Date start, Date end) {
+        Periode p = new Periode();
+        p.setStart(start);
+        p.setSlutt(end);
+        return p;
+    }
+
+    private static Date daysFromNow(int days) {
+        return Date.from(
+                java.time.Instant.now().plus(java.time.Period.ofDays(days))
+        );
+    }
+
+    @Test
+    void getMainElevforhold_shouldReturnEmptyForEmptyList() {
+        Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
+                Collections.emptyList(), currentTime);
 
         assertThat(result).isEmpty();
     }
