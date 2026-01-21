@@ -24,7 +24,7 @@ patches:
         value: "fintlabs-no-fint-kontroll-user-factory"
       - op: replace
         path: "/spec/env/4/value"
-        value: "-XX:+ExitOnOutOfMemoryError -Xmx896m -verbose:gc"
+        value: "-XX:+ExitOnOutOfMemoryError -Xmx896m"
       - op: replace
         path: "/spec/env/5/value"
         value: '2'
