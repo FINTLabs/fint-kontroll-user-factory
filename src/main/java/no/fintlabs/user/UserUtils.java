@@ -76,23 +76,12 @@ public class UserUtils {
     }
 
 
-    public static boolean isValidUserOnKafka(String resourceId) {
-        return publishUserCache
-                .getOptional(resourceId)
-                .map(user -> !UserStatus.INVALID.equals(user.getStatus()))
-                .orElse(false);
-    }
-
     //TODO: Skrive om slik at den logger om bruker er på kafka eller ikke
     public static User getUserFromKafka(String resourceId) {
         Optional<User> userFromKafka = publishUserCache.getOptional(resourceId);
         log.info("Get user information from Kafka: {}", userFromKafka);
 
         return userFromKafka.orElse(null);
-    }
-
-    public static Optional<User> createInvalidUser(String resourceId) {
-        return Optional.of(User.builder().resourceId(resourceId).status(UserStatus.INVALID).build());
     }
 
     @Value("${fint.kontroll.user.days-before-start-employee}")

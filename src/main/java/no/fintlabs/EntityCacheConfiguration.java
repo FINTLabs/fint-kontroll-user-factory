@@ -8,7 +8,7 @@ import no.novari.fint.model.resource.utdanning.elev.ElevResource;
 import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
 import no.novari.fint.model.resource.utdanning.elev.SkoleressursResource;
 import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
-import no.fintlabs.azureUser.AzureUser;
+import no.fintlabs.entraUser.EntraUser;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.cache.FintCacheManager;
 import no.fintlabs.user.User;
@@ -63,7 +63,7 @@ public class EntityCacheConfiguration {
     FintCache<String, SkoleressursResource> skoleressursResourceCache() {return createCache(SkoleressursResource.class);}
 
     @Bean
-    FintCache<String, AzureUser> azureUserResourceCache(){return createCache(AzureUser.class);}
+    FintCache<String, EntraUser> azureUserResourceCache(){return createCache(EntraUser.class);}
 
     @Bean
     FintCache<String, Long> employeeInSchoolCache() {return createCache(Long.class);}
