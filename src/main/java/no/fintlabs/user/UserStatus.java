@@ -7,4 +7,6 @@ public class UserStatus {
     public static final String ACTIVE = "ACTIVE";
     public static final String DISABLED = "DISABLED";
     public static final String INVALID = "INVALID";
+    public static final String DELETED = "DELETED";
+    public static final String SENT_DELETED = "SENT_DELETED";
 }

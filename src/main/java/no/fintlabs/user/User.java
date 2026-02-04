@@ -27,9 +27,9 @@ public class User {
     private Set<String> organisationUnitIds;
     private String email;
     private String managerRef;
-    private String status;
-    private Date statusChanged;
+    private String fintStatus;
     private Date validFrom;
     private Date validTo;
+    private String entraStatus;
 
 }

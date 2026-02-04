@@ -1,11 +1,13 @@
 package no.fintlabs.user;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.novari.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
 import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
 import no.novari.fint.model.resource.felles.PersonResource;
-import no.fintlabs.azureUser.AzureUserService;
+import no.fintlabs.entraUser.EntraUserAttributes;
+import no.fintlabs.entraUser.EntraUserService;
 import no.fintlabs.resourceServices.ArbeidsforholdService;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.resourceServices.PersonService;
@@ -20,30 +22,15 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class UserPublishingComponent {
 
     private final PersonService personService;
     private final PersonalressursService personalressursService;
-    private final AzureUserService azureUserService;
+    private final EntraUserService entraUserService;
     private final ArbeidsforholdService arbeidsforholdService;
     private final UserEntityProducerService userEntityProducerService;
     private final SkoleressursService skoleressursService;
-
-    public UserPublishingComponent(
-            PersonService personService,
-            PersonalressursService personalressursService,
-            ArbeidsforholdService arbeidsforholdService,
-            AzureUserService azureUserService,
-            UserEntityProducerService userEntityProducerService,
-            SkoleressursService skoleressursService
-    ) {
-        this.personService = personService;
-        this.personalressursService = personalressursService;
-        this.arbeidsforholdService = arbeidsforholdService;
-        this.azureUserService = azureUserService;
-        this.userEntityProducerService = userEntityProducerService;
-        this.skoleressursService = skoleressursService;
-    }
 
     @Scheduled(
             initialDelayString = "${fint.kontroll.user.publishing.initial-delay}",
@@ -63,15 +50,14 @@ public class UserPublishingComponent {
 
         List<User> publishedUsers = userEntityProducerService.publishChangedUsers(allValidEmployeeUsers);
         log.info("Number of personalressurs read from FINT: {}", allEmployees.size());
-        log.info("Number of users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
+        log.info("Number of users from Entra ID: {}", entraUserService.getNumberOfEntraUsersInCache());
         log.info("Published {} of {} employee users in cache", publishedUsers.size(), allValidEmployeeUsers.size());
         log.info("<< End scheduled import of employees >>");
     }
 
-    private Optional<User> createUser(PersonalressursResource personalressursResource, Date currentTime) {
+    public Optional<User> createUser(PersonalressursResource personalressursResource, Date currentTime) {
 
         String resourceId = personalressursService.getResourceId(personalressursResource);
-        boolean isValidUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
 
         Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
         if (personResourceOptional.isEmpty()) {
@@ -113,29 +99,16 @@ public class UserPublishingComponent {
                 .flatMap(arbeidssted -> ResourceLinkUtil.getOptionalFirstLink(arbeidssted::getLeder));
 
         //Azure attributes
-        Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
-        if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
+        Optional<EntraUserAttributes> entraUserAttributes = entraUserService.getEntraUserAttributes(resourceId);
+        if (entraUserAttributes.isEmpty()) {
             log.info("Creating user failed, resourceId={}, missing azureUserAttributes", resourceId);
             return Optional.empty();
         }
-        if (azureUserAttributes.isEmpty()) {
-            Map<String, String> attributes = new HashMap<>();
-            User userOnKafka = UserUtils.getUserFromKafka(resourceId);
-            attributes.put("email", userOnKafka.getEmail());
-            attributes.put("userName", userOnKafka.getUserName());
-            if (userOnKafka.getIdentityProviderUserObjectId() != null) {
-                attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
-            }
-            attributes.put("azureStatus", userOnKafka.getStatus());
-            azureUserAttributes = Optional.of(attributes);
+        if(entraUserAttributes.get().entraStatus().equals(UserStatus.DELETED)) {
+            log.info("Creating user (student) failed, resourceId={}, user is deleted in Entra", resourceId);
+            return Optional.empty();
         }
-
-
         String fintStatus = UserUtils.getFINTAnsattStatus(personalressursResource, currentTime);
-        Date statusChanged = UserStatus.ACTIVE.equals(fintStatus)
-                ? personalressursResource.getAnsettelsesperiode().getStart()
-                : personalressursResource.getAnsettelsesperiode().getSlutt();
-
 
         return Optional.of(
                 createUser(
@@ -145,11 +118,9 @@ public class UserPublishingComponent {
                         hovedArbeidsstedOptional.isPresent() ? hovedArbeidsstedOptional.get().getNavn() : "mangler info",
                         hovedArbeidsstedOptional.isPresent() ? hovedArbeidsstedOptional.get().getOrganisasjonsId().getIdentifikatorverdi() : "mangler info",
                         additionalArbeidssteder,
-                        azureUserAttributes.get(),
+                        entraUserAttributes.get(),
                         resourceId,
-                        fintStatus,
-                        statusChanged
-                )
+                        fintStatus)
         );
     }
 
@@ -160,17 +131,13 @@ public class UserPublishingComponent {
             String organisasjonsnavn,
             String organisasjonsId,
             Set<String> additionalArbeidsteder,
-            Map<String, String> azureUserAttributes,
+            EntraUserAttributes entraUserAttributes,
             String resourceId,
-            String fintStatus,
-            Date statusChanged
+            String fintStatus
     ) {
 
         Date validFrom = personalressursResource.getAnsettelsesperiode().getStart();
         Date validTo = personalressursResource.getAnsettelsesperiode().getSlutt();
-
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserStatus.ACTIVE)
-                && fintStatus.equals(UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.DISABLED;
 
         String userType = skoleressursService.isEmployeeInSchool(resourceId)
                 ? String.valueOf(UserUtils.UserType.EMPLOYEEFACULTY)
@@ -188,11 +155,11 @@ public class UserPublishingComponent {
                 .mainOrganisationUnitId(organisasjonsId)
                 .organisationUnitIds(additionalArbeidsteder)
                 .managerRef(lederPersonalressursHref)
-                .identityProviderUserObjectId(UUID.fromString(azureUserAttributes.getOrDefault("identityProviderUserObjectId", "0-0-0-0-0")))
-                .email(azureUserAttributes.getOrDefault("email", ""))
-                .userName(azureUserAttributes.getOrDefault("userName", ""))
-                .status(userStatus)
-                .statusChanged(statusChanged)
+                .identityProviderUserObjectId(UUID.fromString(entraUserAttributes.identityProviderUserObjectId()))
+                .email(entraUserAttributes.email())
+                .userName(entraUserAttributes.userName())
+                .fintStatus(fintStatus)
+                .entraStatus(entraUserAttributes.entraStatus())
                 .validFrom(validFrom)
                 .validTo(validTo)
                 .build();
