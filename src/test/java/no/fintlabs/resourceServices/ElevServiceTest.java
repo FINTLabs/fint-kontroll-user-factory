@@ -43,7 +43,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(1)
@@ -62,7 +62,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(2)
@@ -79,7 +79,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(1)
