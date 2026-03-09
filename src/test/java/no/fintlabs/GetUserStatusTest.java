@@ -1,8 +1,8 @@
 package no.fintlabs;
 
-import no.fint.model.felles.kompleksedatatyper.Identifikator;
-import no.fint.model.felles.kompleksedatatyper.Periode;
-import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
+import no.novari.fint.model.felles.kompleksedatatyper.Identifikator;
+import no.novari.fint.model.felles.kompleksedatatyper.Periode;
+import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
 import no.fintlabs.resourceServices.GyldighetsperiodeService;
 import no.fintlabs.user.UserStatus;
 import no.fintlabs.user.UserUtils;
