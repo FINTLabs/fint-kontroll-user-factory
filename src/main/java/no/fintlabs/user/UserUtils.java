@@ -1,9 +1,9 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Periode;
-import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
-import no.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.novari.fint.model.felles.kompleksedatatyper.Periode;
+import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.resourceServices.GyldighetsperiodeService;
 import org.springframework.beans.factory.annotation.Value;
