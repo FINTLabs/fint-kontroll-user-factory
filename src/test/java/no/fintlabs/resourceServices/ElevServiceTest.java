@@ -1,8 +1,8 @@
 
 package no.fintlabs.resourceServices;
 
-import no.fint.model.resource.Link;
-import no.fint.model.resource.utdanning.elev.ElevResource;
+import no.novari.fint.model.resource.Link;
+import no.novari.fint.model.resource.utdanning.elev.ElevResource;
 import no.fintlabs.cache.FintCache;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
