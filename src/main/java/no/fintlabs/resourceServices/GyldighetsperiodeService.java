@@ -1,7 +1,7 @@
 package no.fintlabs.resourceServices;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Periode;
+import no.novari.fint.model.felles.kompleksedatatyper.Periode;
 import org.springframework.stereotype.Service;
 
 import java.util.Calendar;
