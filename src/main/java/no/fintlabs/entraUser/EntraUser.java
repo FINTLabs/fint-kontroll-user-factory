@@ -1,5 +1,7 @@
 package no.fintlabs.entraUser;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
 public record EntraUser(
         String id,
         String mail,
@@ -9,6 +11,18 @@ public record EntraUser(
         Boolean accountEnabled,
         Boolean isDeleted
 ) {
+    public static EntraUser fromRecord(ConsumerRecord<String, EntraUserPayload> record) {
+        EntraUserPayload v = record.value();
+        return new EntraUser(
+                record.key(),
+                v.mail(),
+                v.userPrincipalName(),
+                v.employeeId(),
+                v.studentId(),
+                v.accountEnabled(),
+                false
+        );
+    }
     public EntraUser markDeleted() {
         return new EntraUser(
                 id,

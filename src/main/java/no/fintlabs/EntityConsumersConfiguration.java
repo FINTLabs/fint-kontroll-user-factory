@@ -2,6 +2,7 @@ package no.fintlabs;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import no.fintlabs.entraUser.EntraUserPayload;
 import no.novari.fint.model.resource.FintLinks;
 import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.novari.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
@@ -142,7 +143,7 @@ public class EntityConsumersConfiguration {
                 = entityConsumerFactoryService.createFactory(
                 SkoleressursResource.class,
                 consumerRecord -> {
-                    String personalressursHref = consumerRecord.value().getPersonalressurs().get(0).getHref();
+                    String personalressursHref = consumerRecord.value().getPersonalressurs().getFirst().getHref();
                     String key = personalressursHref.substring(personalressursHref.lastIndexOf("/") + 1);
                     skoleressursResourceCache.put(
                             key,
@@ -160,18 +161,18 @@ public class EntityConsumersConfiguration {
     }
 
     @Bean
-    ConcurrentMessageListenerContainer<String, EntraUser> entraUserResourceEntityConsumer(
+    ConcurrentMessageListenerContainer<String, EntraUserPayload> entraUserResourceEntityConsumer(
             FintCache<String, EntraUser> azureUserResourceCache,
             EntraUserService entraUserService) {
-        ListenerContainerFactory<EntraUser, EntityTopicNameParameters, EntityTopicNamePatternParameters> entraUserConsumerFactory
+        ListenerContainerFactory<EntraUserPayload, EntityTopicNameParameters, EntityTopicNamePatternParameters> entraUserConsumerFactory
                 = entityConsumerFactoryService.createFactory(
-                EntraUser.class,
+                EntraUserPayload.class,
                 consumerRecord -> {
                     if (consumerRecord.value() == null) {
                         log.info("Received tombstone for user: {}", consumerRecord.key());
                         entraUserService.handleTombstoneForId(consumerRecord.key());
                     } else {
-                        EntraUser entraUser = consumerRecord.value();
+                        EntraUser entraUser = EntraUser.fromRecord(consumerRecord);
 
                         azureUserResourceCache.put(
                                 entraUser.getEmployeeOrStudentId(),
@@ -181,7 +182,7 @@ public class EntityConsumersConfiguration {
                     }
                 }
         );
-        return entraUserConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("azure-user").build());
+        return entraUserConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("entra-user").build());
 
     }
 
