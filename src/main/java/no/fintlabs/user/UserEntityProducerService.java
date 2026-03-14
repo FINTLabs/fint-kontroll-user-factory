@@ -41,18 +41,27 @@ public class UserEntityProducerService {
                         .map(publishedUserHash -> publishedUserHash.hashCode() != user.hashCode())
                         .orElse(true)
                 )
-                .peek(this::publishChangedUsers)
+                .peek(this::publishUser)
                 .toList();
 
     }
 
-    private void publishChangedUsers(User user) {
+    public void publishUser(User user) {
         String key = user.getResourceId();
         entityProducer.send(
                 EntityProducerRecord.<User>builder()
                         .topicNameParameters(entityTopicNameParameters)
                         .key(key)
                         .value(user)
+                        .build()
+        );
+    }
+
+    public void publishTombstoneUser(String employeeOrStudentId) {
+        entityProducer.send(
+                EntityProducerRecord.<User>builder()
+                        .topicNameParameters(entityTopicNameParameters)
+                        .key(employeeOrStudentId)
                         .build()
         );
     }

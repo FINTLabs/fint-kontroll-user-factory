@@ -1,13 +1,14 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Periode;
-import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.fint.model.resource.felles.PersonResource;
-import no.fint.model.resource.utdanning.elev.ElevResource;
-import no.fint.model.resource.utdanning.elev.ElevforholdResource;
-import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
-import no.fintlabs.azureUser.AzureUserService;
+import no.novari.fint.model.felles.kompleksedatatyper.Periode;
+import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.novari.fint.model.resource.felles.PersonResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
+import no.fintlabs.entraUser.EntraUserAttributes;
+import no.fintlabs.entraUser.EntraUserService;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.resourceServices.ElevService;
 import no.fintlabs.resourceServices.ElevforholdService;
@@ -24,17 +25,17 @@ public class UserPublishingElevComponent {
     private final ElevService elevService;
     private final PersonUtdanningService personUtdanningService;
     private final ElevforholdService elevforholdService;
-    private final AzureUserService azureUserService;
+    private final EntraUserService entraUserService;
     private final UserEntityProducerService userEntityProducerService;
 
     public UserPublishingElevComponent(
             ElevService elevService,
             PersonUtdanningService personUtdanningService,
-            ElevforholdService elevforholdService, AzureUserService azureUserService, UserEntityProducerService userEntityProducerService) {
+            ElevforholdService elevforholdService, EntraUserService entraUserService, UserEntityProducerService userEntityProducerService) {
         this.elevService = elevService;
         this.personUtdanningService = personUtdanningService;
         this.elevforholdService = elevforholdService;
-        this.azureUserService = azureUserService;
+        this.entraUserService = entraUserService;
         this.userEntityProducerService = userEntityProducerService;
     }
 
@@ -45,7 +46,7 @@ public class UserPublishingElevComponent {
     public void publishElevUsers() {
         Date currentTime = Date.from(Instant.now());
         log.info("<< Start scheduled import of students >>");
-        List<ElevResource> allElevUsersWithElevforhold = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> allElevUsersWithElevforhold = elevService.getAllEleverWithElevforhold();
 
 
         List<User> allValidElevUsers = allElevUsersWithElevforhold
@@ -58,7 +59,7 @@ public class UserPublishingElevComponent {
         List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allValidElevUsers);
         log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
         log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOfElevforholdInCache());
-        log.info("Number of users from Entra ID: {}", azureUserService.getNumberOfAzureUsersInCache());
+        log.info("Number of users from Entra ID: {}", entraUserService.getNumberOfEntraUsersInCache());
         log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
         log.debug("Ids of published users (students) : {}",
                 publishedElevUsers.stream()
@@ -69,10 +70,9 @@ public class UserPublishingElevComponent {
 
     }
 
-    private Optional<User> createUser(ElevResource elevResource, Date currentTime) {
+    public Optional<User> createUser(ElevResource elevResource, Date currentTime) {
         String hrefSelfLink = ResourceLinkUtil.getFirstSelfLink(elevResource);
         String resourceId = hrefSelfLink.substring(hrefSelfLink.lastIndexOf("/") + 1);
-        boolean isValidUserOnKafka = UserUtils.isValidUserOnKafka(resourceId);
 
         Optional<PersonResource> personResourceOptional = personUtdanningService
                 .getPersonUtdanning(elevResource);
@@ -103,32 +103,20 @@ public class UserPublishingElevComponent {
             return Optional.empty();
         }
 
-        //Azure attributes
-        Optional<Map<String, String>> azureUserAttributes = azureUserService.getAzureUserAttributes(resourceId);
-        if (azureUserAttributes.isEmpty() && !isValidUserOnKafka) {
-            log.info("Creating user (student) failed, resourceId={}, missing azure user attributes", resourceId);
+        //Entra attributes
+        Optional<EntraUserAttributes> entraUserAttributes = entraUserService.getEntraUserAttributes(resourceId);
+        if (entraUserAttributes.isEmpty()) {
+            log.info("Creating user (student) failed, resourceId={}, missing entra user attributes", resourceId);
             return Optional.empty();
         }
-
-        //TODO: move to separate method
-        if (azureUserAttributes.isEmpty()) {
-            Map<String, String> attributes = new HashMap<>();
-            User userOnKafka = UserUtils.getUserFromKafka(resourceId);
-            attributes.put("email", userOnKafka.getEmail());
-            attributes.put("userName", userOnKafka.getUserName());
-            if (userOnKafka.getIdentityProviderUserObjectId() != null) {
-                attributes.put("identityProviderUserObjectId", userOnKafka.getIdentityProviderUserObjectId().toString());
-            }
-            attributes.put("azureStatus", userOnKafka.getStatus());
-            azureUserAttributes = Optional.of(attributes);
+        if(entraUserAttributes.get().entraStatus().equals(UserStatus.DELETED)) {
+            log.info("Creating user (student) failed, resourceId={}, user is deleted in Entra", resourceId);
+            return Optional.empty();
         }
-
         String fintStatus = UserUtils.getFINTElevStatus(mainElevForholdOptional.get(), currentTime);
 
         Date validFrom = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getStart).min(Comparator.naturalOrder()).orElse(null);
         Date validTo = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getSlutt).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
-
-        Date statusChanged = fintStatus.equals(UserStatus.ACTIVE) ? validFrom : validTo;
 
 
         return Optional.of(
@@ -136,10 +124,9 @@ public class UserPublishingElevComponent {
                         personResourceOptional.get(),
                         skoleOrgUnitOptional.get().getOrganisasjonsnavn(),
                         skoleOrgUnitOptional.get().getOrganisasjonsId().getIdentifikatorverdi(),
-                        azureUserAttributes.get(),
+                        entraUserAttributes.get(),
                         resourceId,
                         fintStatus,
-                        statusChanged,
                         validFrom,
                         validTo
                 )
@@ -149,18 +136,14 @@ public class UserPublishingElevComponent {
 
 
     private User createUser(PersonResource personResource,
-            String organisasjonsnavn,
-            String organisasjonsId,
-            Map<String, String> azureUserAttributes,
-            String resourceId,
-            String fintStatus,
-            Date statusChanged,
-            Date validFrom,
-            Date validTo
+                            String organisasjonsnavn,
+                            String organisasjonsId,
+                            EntraUserAttributes entraUserAttributes,
+                            String resourceId,
+                            String fintStatus,
+                            Date validFrom,
+                            Date validTo
     ) {
-
-        String userStatus = azureUserAttributes.getOrDefault("azureStatus", "").equals(UserStatus.ACTIVE)
-                && fintStatus.equals(UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.DISABLED;
 
         log.info("Creating user (student) with resourceId: {}", resourceId);
 
@@ -171,13 +154,15 @@ public class UserPublishingElevComponent {
                 .userType(String.valueOf(UserUtils.UserType.STUDENT))
                 .mainOrganisationUnitName(organisasjonsnavn)
                 .mainOrganisationUnitId(organisasjonsId)
-                .identityProviderUserObjectId(UUID.fromString(azureUserAttributes.getOrDefault("identityProviderUserObjectId", "0-0-0-0-0")))
-                .email(azureUserAttributes.getOrDefault("email", ""))
-                .userName(azureUserAttributes.getOrDefault("userName", ""))
-                .status(userStatus)
-                .statusChanged(statusChanged)
+                .identityProviderUserObjectId(UUID.fromString(entraUserAttributes.identityProviderUserObjectId()))
+                .email(entraUserAttributes.email())
+                .userName(entraUserAttributes.userName())
+                .fintStatus(fintStatus)
+                .entraStatus(entraUserAttributes.entraStatus())
                 .validFrom(validFrom)
                 .validTo(validTo)
                 .build();
     }
+
+
 }
