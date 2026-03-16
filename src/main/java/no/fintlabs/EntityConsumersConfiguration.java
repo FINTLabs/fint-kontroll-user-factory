@@ -182,7 +182,7 @@ public class EntityConsumersConfiguration {
                     }
                 }
         );
-        return entraUserConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("entra-user").build());
+        return entraUserConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("graph-user").build());
 
     }
 
