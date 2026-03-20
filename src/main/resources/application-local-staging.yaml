@@ -14,7 +14,7 @@ fint:
   kontroll:
     user:
       publishing:
-        initial-delay: 20000
+        initial-delay: 60000
         initial-delay-elev: 30000
         fixed-delay: 20000
       days-before-start-employee: 60
