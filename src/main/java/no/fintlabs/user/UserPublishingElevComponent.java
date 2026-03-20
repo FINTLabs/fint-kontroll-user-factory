@@ -122,7 +122,7 @@ public class UserPublishingElevComponent {
         return Optional.of(
                 createUser(
                         personResourceOptional.get(),
-                        skoleOrgUnitOptional.get().getOrganisasjonsnavn(),
+                        skoleOrgUnitOptional.get().getNavn(),
                         skoleOrgUnitOptional.get().getOrganisasjonsId().getIdentifikatorverdi(),
                         entraUserAttributes.get(),
                         resourceId,
