@@ -125,7 +125,7 @@ jobs:
       - name: Post to a Slack channel
         if: failure()
         id: slack
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v3.0.1
         with:
           channel-id: 'C05PWAGTUFK' # Channel fint-kontroll-builds
           slack-message: ":x: *Build or deploy Failed!* for repository *${{ github.repository }}* on branch *${{ github.ref }}*.
