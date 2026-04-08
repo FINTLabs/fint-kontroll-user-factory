@@ -1,12 +1,12 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.novari.fint.model.felles.kompleksedatatyper.Periode;
-import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.novari.fint.model.resource.felles.PersonResource;
-import no.novari.fint.model.resource.utdanning.elev.ElevResource;
-import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
-import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
+import no.fint.model.felles.kompleksedatatyper.Periode;
+import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.fint.model.resource.felles.PersonResource;
+import no.fint.model.resource.utdanning.elev.ElevResource;
+import no.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.azureUser.AzureUserService;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.resourceServices.ElevService;

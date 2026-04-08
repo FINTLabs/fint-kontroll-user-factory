@@ -2,10 +2,10 @@ package no.fintlabs.resourceServices;
 
 import lombok.extern.slf4j.Slf4j;
 
-import no.novari.fint.model.resource.Link;
-import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
-import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
+import no.fint.model.resource.Link;
+import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.user.UserUtils;

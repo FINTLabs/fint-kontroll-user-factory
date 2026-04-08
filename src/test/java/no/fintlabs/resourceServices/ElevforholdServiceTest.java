@@ -1,10 +1,10 @@
 package no.fintlabs.resourceServices;
 
-import no.novari.fint.model.felles.kompleksedatatyper.Periode;
-import no.novari.fint.model.resource.Link;
-import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
-import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
+import no.fint.model.felles.kompleksedatatyper.Periode;
+import no.fint.model.resource.Link;
+import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.cache.FintCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

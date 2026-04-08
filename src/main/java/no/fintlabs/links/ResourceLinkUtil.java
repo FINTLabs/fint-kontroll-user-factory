@@ -1,7 +1,8 @@
 package no.fintlabs.links;
 
-import no.novari.fint.model.resource.FintLinks;
-import no.novari.fint.model.resource.Link;
+import no.fint.model.resource.FintLinks;
+import no.fint.model.resource.Link;
+import org.apache.kafka.common.protocol.types.Field;
 
 import java.util.Collection;
 import java.util.List;

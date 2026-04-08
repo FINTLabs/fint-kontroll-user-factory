@@ -1,7 +1,7 @@
 package no.fintlabs.resourceServices;
 
-import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
-import no.novari.fint.model.resource.Link;
+import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
+import no.fint.model.resource.Link;
 import no.fintlabs.cache.FintCache;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
