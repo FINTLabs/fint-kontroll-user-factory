@@ -22,6 +22,8 @@ spec:
       value: '0'
     - name: fint.kontroll.user.days-before-start-student
       value: '0'
+    - name: novari.kafka.topic.org-id
+      value: 'fintlabs-no'
   kafka:
     enabled: true
     acls:
