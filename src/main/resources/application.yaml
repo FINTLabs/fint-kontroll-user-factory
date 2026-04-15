@@ -15,7 +15,7 @@ fint:
 novari:
   kafka:
     topic:
-      org-id: ${fint.org-id}
+      org-id: org-id
       domain-context: kontroll
     application-id: ${fint.application-id}
     default-replicas: 1
