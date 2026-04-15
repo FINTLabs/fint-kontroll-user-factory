@@ -94,7 +94,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonalressursResource> personalressursResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.personalressurs",
+                "administrasjon-personal-personalressurs",
                 PersonalressursResource.class,
                 personalressursResourceCache
         );
@@ -105,7 +105,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonResource> personResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.person",
+                "administrasjon-personal-person",
                 PersonResource.class,
                 personResourceCache
         );
@@ -116,7 +116,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.organisasjon.organisasjonselement",
+                "administrasjon-organisasjon-organisasjonselement",
                 OrganisasjonselementResource.class,
                 organisasjonselementResourceCache
         );
@@ -127,7 +127,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, ArbeidsforholdResource> arbeidsforholdResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.arbeidsforhold",
+                "administrasjon-personal-arbeidsforhold",
                 ArbeidsforholdResource.class,
                 arbeidsforholdResourceCache
         );
@@ -138,7 +138,7 @@ public class EntityConsumersConfiguration {
             FintCache<String,ElevResource> elevResourceCache
     ){
         return createCacheConsumer(
-                "utdanning.elev.elev",
+                "utdanning-elev-elev",
                 ElevResource.class,
                 elevResourceCache
         );
@@ -149,7 +149,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonResource> personResourceCache
     ){
         return createCacheConsumer(
-                "utdanning.elev.person",
+                "utdanning-elev-person",
                 PersonResource.class,
                 personResourceCache
         );
@@ -160,7 +160,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, ElevforholdResource> elevforholdResourceCache
     ){
         return createCacheConsumer(
-                "utdanning.elev.elevforhold",
+                "utdanning-elev-elevforhold",
                 ElevforholdResource.class,
                 elevforholdResourceCache
         );
@@ -171,7 +171,7 @@ public class EntityConsumersConfiguration {
             FintCache<String,SkoleResource> skoleResourceCache
     ){
         return createCacheConsumer(
-                "utdanning.utdanningsprogram.skole",
+                "utdanning-utdanningsprogram-skole",
                 SkoleResource.class,
                 skoleResourceCache
         );
