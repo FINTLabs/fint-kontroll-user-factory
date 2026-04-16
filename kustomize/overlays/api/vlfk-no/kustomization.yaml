@@ -43,6 +43,9 @@ patches:
       - op: replace
         path: "/spec/env/6/value"
         value: "5"
+      - op: replace
+        path: "/spec/env/7/value"
+        value: "vlfk-no"
     target:
       kind: Application
       name: fint-kontroll-user-factory

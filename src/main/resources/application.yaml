@@ -4,12 +4,6 @@ fint:
   cache:
     defaultCacheEntryTimeToLiveMillis: 604800000
     defaultCacheHeapSize: 1000000
-  kafka:
-    topic:
-      org-id: ${fint.org-id}
-      domain-context: kontroll
-    application-id: ${fint.application-id}
-    default-replicas: 1
   kontroll:
     user:
       publishing:
@@ -18,6 +12,14 @@ fint:
         fixed-delay: 3600000
       days-before-start-employee: 10
       days-before-start-student: 5
+novari:
+  kafka:
+    topic:
+      org-id: org-id
+      domain-context: kontroll
+    application-id: ${fint.application-id}
+    default-replicas: 1
+
 spring:
   kafka:
     consumer:

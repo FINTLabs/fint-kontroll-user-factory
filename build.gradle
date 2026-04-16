@@ -1,6 +1,6 @@
 plugins {
-    id 'org.springframework.boot' version '3.2.4'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot' version '3.5.7'
+    id 'io.spring.dependency-management' version '1.1.7'
     id 'java'
 }
 
@@ -35,7 +35,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.netty:netty-resolver-dns-native-macos:4.1.72.Final:osx-aarch_64'
     implementation 'org.springframework.kafka:spring-kafka'
-    implementation 'no.fintlabs:fint-kafka:3.0.0-rc-1'
+    implementation 'no.novari:kafka:6.0.0'
     implementation 'no.fintlabs:fint-flyt-cache:1.0.0'
     implementation("no.fint:fint-administrasjon-resource-model-java:${apiVersion}")
     implementation("no.fint:fint-utdanning-resource-model-java:${apiVersion}")
