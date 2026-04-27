@@ -173,6 +173,10 @@ public class EntityConsumersConfiguration {
                         entraUserService.handleTombstoneForId(consumerRecord.key());
                     } else {
                         EntraUser entraUser = EntraUser.fromRecord(consumerRecord);
+                        if (entraUser.getEmployeeOrStudentId() == null) {
+                            log.warn("Skipping user with missing employeeId or studentId: {}", entraUser.userPrincipalName());
+                            return;
+                        }
                         azureUserResourceCache.put(
                                 entraUser.getEmployeeOrStudentId(),
                                 entraUser
