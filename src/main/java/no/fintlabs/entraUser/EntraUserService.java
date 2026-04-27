@@ -58,6 +58,10 @@ public class EntraUserService {
     }
 
     public void publishDeletedUser(EntraUser entraUser) {
+        if(entraUser.getEmployeeOrStudentId() == null) {
+            log.warn("Skipping deleted-user publish for {} because both employeeId and studentId are missing", entraUser.id());
+            return;
+        }
         userEntityProducerService.publishTombstoneUser(entraUser.getEmployeeOrStudentId());
         entraUserCache.put(entraUser.getEmployeeOrStudentId(), entraUser.markDeleted());
     }
