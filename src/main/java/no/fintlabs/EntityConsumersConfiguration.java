@@ -173,11 +173,6 @@ public class EntityConsumersConfiguration {
                         entraUserService.handleTombstoneForId(consumerRecord.key());
                     } else {
                         EntraUser entraUser = EntraUser.fromRecord(consumerRecord);
-                        if(entraUser.userPrincipalName().equals("unknown")) {
-                            log.info("Received tombstone for user: {}", consumerRecord.key());
-                            entraUserService.handleTombstoneForId(consumerRecord.key());
-                            return;
-                        }
                         azureUserResourceCache.put(
                                 entraUser.getEmployeeOrStudentId(),
                                 entraUser
