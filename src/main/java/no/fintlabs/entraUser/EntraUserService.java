@@ -41,7 +41,6 @@ public class EntraUserService {
     }
 
     public void handleTombstoneForId(String key) {
-        log.info("Received tombstone for user: {}", key);
         Optional<EntraUser> optionalEntraUser = entraUserCache.getAllDistinct().stream().filter(u -> u.id().equals(key)).findFirst();
         optionalEntraUser.ifPresentOrElse(this::publishDeletedUser,
                 () -> {
