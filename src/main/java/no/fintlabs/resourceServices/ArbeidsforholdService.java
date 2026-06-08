@@ -1,9 +1,9 @@
 package no.fintlabs.resourceServices;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.resource.Link;
-import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
+import no.novari.fint.model.resource.Link;
+import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.novari.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.links.ResourceLinkUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,7 +90,7 @@ public class ArbeidsforholdService {
 
     private boolean isValid(ArbeidsforholdResource arbeidsforholdResource, Date currentTime) {
         return gyldighetsperiodeService.isValid(
-                arbeidsforholdResource.getGyldighetsperiode(), currentTime, daysBeforeStartEmployee
+                arbeidsforholdResource.getGyldighetsperiode()  , currentTime, daysBeforeStartEmployee
         );
     }
 
