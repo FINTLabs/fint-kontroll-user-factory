@@ -13,12 +13,11 @@ fint:
       days-before-start-student: 60
 novari:
   kafka:
+    application-id: ${fint.application-id}
     default-replicas: 1
     topic:
-      org-id: fintlabs.no
+      org-id: fintlabs-no
       domain-context: kontroll
-    application-id: ${fint.application-id}
-
 spring:
   security:
     oauth2:

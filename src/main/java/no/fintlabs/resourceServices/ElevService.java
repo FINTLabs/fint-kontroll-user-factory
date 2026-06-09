@@ -6,9 +6,7 @@ import no.novari.fint.model.resource.utdanning.elev.ElevResource;
 import no.fintlabs.cache.FintCache;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service

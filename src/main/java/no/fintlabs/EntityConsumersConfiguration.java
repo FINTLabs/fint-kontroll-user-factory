@@ -15,35 +15,74 @@ import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.entraUser.EntraUser;
 import no.fintlabs.entraUser.EntraUserService;
-import no.fintlabs.kafka.common.ListenerContainerFactory;
-import no.fintlabs.kafka.entity.EntityConsumerFactoryService;
-import no.fintlabs.kafka.entity.topic.EntityTopicNameParameters;
-import no.fintlabs.kafka.entity.topic.EntityTopicNamePatternParameters;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.user.User;
+import no.novari.kafka.consuming.ErrorHandlerConfiguration;
+import no.novari.kafka.consuming.ErrorHandlerFactory;
+import no.novari.kafka.consuming.ListenerConfiguration;
+import no.novari.kafka.consuming.ParameterizedListenerContainerFactory;
+import no.novari.kafka.consuming.ParameterizedListenerContainerFactoryService;
+import no.novari.kafka.topic.name.EntityTopicNameParameters;
+import no.novari.kafka.topic.name.TopicNamePrefixParameters;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+
+import java.util.function.Consumer;
 
 @Configuration
 @Slf4j
 @RequiredArgsConstructor
 public class EntityConsumersConfiguration {
 
-    private final EntityConsumerFactoryService entityConsumerFactoryService;
+    private final ParameterizedListenerContainerFactoryService listenerContainerFactoryService;
+    private final ErrorHandlerFactory errorHandlerFactory;
+
+    private static final ListenerConfiguration DEFAULT_LISTENER_CONFIGURATION = ListenerConfiguration
+            .stepBuilder()
+            .groupIdApplicationDefault()
+            .maxPollRecordsKafkaDefault()
+            .maxPollIntervalKafkaDefault()
+            .continueFromPreviousOffsetOnAssignment()
+            .build();
+
+    private static EntityTopicNameParameters entityTopicNameParameters(String resourceName) {
+        return EntityTopicNameParameters
+                .builder()
+                .topicNamePrefixParameters(TopicNamePrefixParameters
+                        .stepBuilder()
+                        .orgIdApplicationDefault()
+                        .domainContextApplicationDefault()
+                        .build())
+                .resourceName(resourceName)
+                .build();
+    }
+
+    private <T> ParameterizedListenerContainerFactory<T> createEntityRecordListenerContainerFactory(
+            Class<T> resourceClass,
+            Consumer<ConsumerRecord<String, T>> recordProcessor
+    ) {
+        return listenerContainerFactoryService.createRecordListenerContainerFactory(
+                resourceClass,
+                recordProcessor,
+                DEFAULT_LISTENER_CONFIGURATION,
+                errorHandlerFactory.createErrorHandler(ErrorHandlerConfiguration.<T>builder().build())
+        );
+    }
 
     private <T extends FintLinks> ConcurrentMessageListenerContainer<String, T> createCacheConsumer(
             String resourceReference,
             Class<T> resourceClass,
             FintCache<String, T> cache
     ) {
-        return entityConsumerFactoryService.createFactory(
+        return createEntityRecordListenerContainerFactory(
                 resourceClass,
                 consumerRecord -> cache.put(
                         ResourceLinkUtil.getSelfLinks(consumerRecord.value()),
                         consumerRecord.value()
                 )
-        ).createContainer(EntityTopicNameParameters.builder().resource(resourceReference).build());
+        ).createContainer(entityTopicNameParameters(resourceReference));
     }
 
     @Bean
@@ -51,7 +90,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonalressursResource> personalressursResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.personalressurs",
+                "administrasjon-personal-personalressurs",
                 PersonalressursResource.class,
                 personalressursResourceCache
         );
@@ -62,7 +101,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonResource> personResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.person",
+                "administrasjon-personal-person",
                 PersonResource.class,
                 personResourceCache
         );
@@ -73,7 +112,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.organisasjon.organisasjonselement",
+                "administrasjon-organisasjon-organisasjonselement",
                 OrganisasjonselementResource.class,
                 organisasjonselementResourceCache
         );
@@ -84,7 +123,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, ArbeidsforholdResource> arbeidsforholdResourceCache
     ) {
         return createCacheConsumer(
-                "administrasjon.personal.arbeidsforhold",
+                "administrasjon-personal-arbeidsforhold",
                 ArbeidsforholdResource.class,
                 arbeidsforholdResourceCache
         );
@@ -95,7 +134,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, ElevResource> elevResourceCache
     ) {
         return createCacheConsumer(
-                "utdanning.elev.elev",
+                "utdanning-elev-elev",
                 ElevResource.class,
                 elevResourceCache
         );
@@ -106,7 +145,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, PersonResource> personResourceCache
     ) {
         return createCacheConsumer(
-                "utdanning.elev.person",
+                "utdanning-elev-person",
                 PersonResource.class,
                 personResourceCache
         );
@@ -117,7 +156,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, ElevforholdResource> elevforholdResourceCache
     ) {
         return createCacheConsumer(
-                "utdanning.elev.elevforhold",
+                "utdanning-elev-elevforhold",
                 ElevforholdResource.class,
                 elevforholdResourceCache
         );
@@ -128,7 +167,7 @@ public class EntityConsumersConfiguration {
             FintCache<String, SkoleResource> skoleResourceCache
     ) {
         return createCacheConsumer(
-                "utdanning.utdanningsprogram.skole",
+                "utdanning-utdanningsprogram-skole",
                 SkoleResource.class,
                 skoleResourceCache
         );
@@ -139,8 +178,8 @@ public class EntityConsumersConfiguration {
             FintCache<String, SkoleressursResource> skoleressursResourceCache,
             FintCache<String, Long> employeeInSchoolCache
     ) {
-        ListenerContainerFactory<SkoleressursResource, EntityTopicNameParameters, EntityTopicNamePatternParameters> skoleressursConsumerFactory
-                = entityConsumerFactoryService.createFactory(
+        ParameterizedListenerContainerFactory<SkoleressursResource> skoleressursConsumerFactory
+                = createEntityRecordListenerContainerFactory(
                 SkoleressursResource.class,
                 consumerRecord -> {
                     String personalressursHref = consumerRecord.value().getPersonalressurs().getFirst().getHref();
@@ -157,15 +196,15 @@ public class EntityConsumersConfiguration {
                 }
         );
 
-        return skoleressursConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("utdanning-elev-skoleressurs").build());
+        return skoleressursConsumerFactory.createContainer(entityTopicNameParameters("utdanning-elev-skoleressurs"));
     }
 
     @Bean
     ConcurrentMessageListenerContainer<String, EntraUserPayload> entraUserResourceEntityConsumer(
             FintCache<String, EntraUser> azureUserResourceCache,
             EntraUserService entraUserService) {
-        ListenerContainerFactory<EntraUserPayload, EntityTopicNameParameters, EntityTopicNamePatternParameters> entraUserConsumerFactory
-                = entityConsumerFactoryService.createFactory(
+        ParameterizedListenerContainerFactory<EntraUserPayload> entraUserConsumerFactory
+                = createEntityRecordListenerContainerFactory(
                 EntraUserPayload.class,
                 consumerRecord -> {
                     if (consumerRecord.value() == null) {
@@ -185,7 +224,7 @@ public class EntityConsumersConfiguration {
                     }
                 }
         );
-        return entraUserConsumerFactory.createContainer(EntityTopicNameParameters.builder().resource("graph-user").build());
+        return entraUserConsumerFactory.createContainer(entityTopicNameParameters("graph-user"));
 
     }
 
@@ -194,7 +233,7 @@ public class EntityConsumersConfiguration {
     ConcurrentMessageListenerContainer<String, User> userResourceEntityConsumer(
             FintCache<String, User> publishUserCache
     ) {
-        return entityConsumerFactoryService.createFactory(
+        return createEntityRecordListenerContainerFactory(
                 User.class,
                 consumerRecord -> {
                     if (consumerRecord.value() == null) {
@@ -209,7 +248,7 @@ public class EntityConsumersConfiguration {
                             consumerRecord.value()
                     );
                 }
-        ).createContainer(EntityTopicNameParameters.builder().resource("user").build());
+        ).createContainer(entityTopicNameParameters("user"));
     }
 
 }

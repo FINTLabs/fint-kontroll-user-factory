@@ -19,7 +19,7 @@ import java.util.List;
 @Slf4j
 public class UserEntityProducerService {
     private final FintCache<String, User> publishedUserCache;
-    private final ParameterizedTemplate<User> parameterizedTemplate;
+    private final ParameterizedTemplate<User> userTemplate;
     private final EntityTopicNameParameters entityTopicNameParameters;
 
     public UserEntityProducerService(
@@ -28,23 +28,23 @@ public class UserEntityProducerService {
             FintCache<String, User> publishedUserCache
     ) {
         this.publishedUserCache = publishedUserCache;
-        parameterizedTemplate = parameterizedTemplateFactory.createTemplate(User.class);
+        userTemplate = parameterizedTemplateFactory.createTemplate(User.class);
         entityTopicNameParameters = EntityTopicNameParameters
                 .builder()
-                .topicNamePrefixParameters(
-                        TopicNamePrefixParameters.stepBuilder()
-                                .orgIdApplicationDefault()
-                                .domainContextApplicationDefault()
-                                .build()
-                )
+                .topicNamePrefixParameters(TopicNamePrefixParameters
+                        .stepBuilder()
+                        .orgIdApplicationDefault()
+                        .domainContextApplicationDefault()
+                        .build())
                 .resourceName("user")
                 .build();
         entityTopicService.createOrModifyTopic(
                 entityTopicNameParameters,
-                EntityTopicConfiguration.stepBuilder()
+                EntityTopicConfiguration
+                        .stepBuilder()
                         .partitions(1)
                         .lastValueRetainedForever()
-                        .nullValueRetentionTime(Duration.ofDays(7))
+                        .nullValueRetentionTime(Duration.ofDays(1))
                         .cleanupFrequency(EntityCleanupFrequency.NORMAL)
                         .build()
         );
@@ -66,7 +66,7 @@ public class UserEntityProducerService {
 
     public void publishUser(User user) {
         String key = user.getResourceId();
-        parameterizedTemplate.send(
+        userTemplate.send(
                 ParameterizedProducerRecord.<User>builder()
                         .topicNameParameters(entityTopicNameParameters)
                         .key(key)
@@ -76,8 +76,8 @@ public class UserEntityProducerService {
     }
 
     public void publishTombstoneUser(String employeeOrStudentId) {
-        entityProducer.send(
-                EntityProducerRecord.<User>builder()
+        userTemplate.send(
+                ParameterizedProducerRecord.<User>builder()
                         .topicNameParameters(entityTopicNameParameters)
                         .key(employeeOrStudentId)
                         .build()
