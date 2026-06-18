@@ -23,7 +23,7 @@ patches:
             cpu: "5000m"
             memory: "10240Mi"
           requests:
-            cpu: "2000m"
+            cpu: "1000m"
             memory: "6000Mi"
       - op: replace
         path: "/spec/kafka/acls/0/topic"
