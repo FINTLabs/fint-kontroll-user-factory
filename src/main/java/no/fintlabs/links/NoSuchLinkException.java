@@ -1,6 +1,6 @@
 package no.fintlabs.links;
 
-import no.fint.model.resource.FintLinks;
+import no.novari.fint.model.resource.FintLinks;
 
 public class NoSuchLinkException extends RuntimeException {
 

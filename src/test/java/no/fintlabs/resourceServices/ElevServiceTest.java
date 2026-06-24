@@ -1,8 +1,8 @@
 
 package no.fintlabs.resourceServices;
 
-import no.fint.model.resource.Link;
-import no.fint.model.resource.utdanning.elev.ElevResource;
+import no.novari.fint.model.resource.Link;
+import no.novari.fint.model.resource.utdanning.elev.ElevResource;
 import no.fintlabs.cache.FintCache;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +43,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(1)
@@ -62,7 +62,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(2)
@@ -79,7 +79,7 @@ class ElevServiceTest {
 
         Date currentTime = new Date();
 
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold(currentTime);
+        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
 
         assertThat(result)
                 .hasSize(1)

@@ -1,9 +1,9 @@
 package no.fintlabs.user;
 
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.felles.kompleksedatatyper.Periode;
-import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
-import no.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.novari.fint.model.felles.kompleksedatatyper.Periode;
+import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
 import no.fintlabs.cache.FintCache;
 import no.fintlabs.resourceServices.GyldighetsperiodeService;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,23 +76,12 @@ public class UserUtils {
     }
 
 
-    public static boolean isValidUserOnKafka(String resourceId) {
-        return publishUserCache
-                .getOptional(resourceId)
-                .map(user -> !UserStatus.INVALID.equals(user.getStatus()))
-                .orElse(false);
-    }
-
     //TODO: Skrive om slik at den logger om bruker er på kafka eller ikke
     public static User getUserFromKafka(String resourceId) {
         Optional<User> userFromKafka = publishUserCache.getOptional(resourceId);
         log.info("Get user information from Kafka: {}", userFromKafka);
 
         return userFromKafka.orElse(null);
-    }
-
-    public static Optional<User> createInvalidUser(String resourceId) {
-        return Optional.of(User.builder().resourceId(resourceId).status(UserStatus.INVALID).build());
     }
 
     @Value("${fint.kontroll.user.days-before-start-employee}")

@@ -1,17 +1,20 @@
 package no.fintlabs;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import no.fint.model.resource.FintLinks;
-import no.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
-import no.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
-import no.fint.model.resource.administrasjon.personal.PersonalressursResource;
-import no.fint.model.resource.felles.PersonResource;
-import no.fint.model.resource.utdanning.elev.ElevResource;
-import no.fint.model.resource.utdanning.elev.ElevforholdResource;
-import no.fint.model.resource.utdanning.elev.SkoleressursResource;
-import no.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
-import no.fintlabs.azureUser.AzureUser;
+import no.fintlabs.entraUser.EntraUserPayload;
+import no.novari.fint.model.resource.FintLinks;
+import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
+import no.novari.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
+import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
+import no.novari.fint.model.resource.felles.PersonResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevResource;
+import no.novari.fint.model.resource.utdanning.elev.ElevforholdResource;
+import no.novari.fint.model.resource.utdanning.elev.SkoleressursResource;
+import no.novari.fint.model.resource.utdanning.utdanningsprogram.SkoleResource;
 import no.fintlabs.cache.FintCache;
+import no.fintlabs.entraUser.EntraUser;
+import no.fintlabs.entraUser.EntraUserService;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.user.User;
 import no.novari.kafka.consuming.ErrorHandlerConfiguration;
@@ -26,19 +29,46 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 
+import java.util.function.Consumer;
+
 @Configuration
 @Slf4j
+@RequiredArgsConstructor
 public class EntityConsumersConfiguration {
 
     private final ParameterizedListenerContainerFactoryService listenerContainerFactoryService;
     private final ErrorHandlerFactory errorHandlerFactory;
 
-    public EntityConsumersConfiguration(
-            ParameterizedListenerContainerFactoryService listenerContainerFactoryService,
-            ErrorHandlerFactory errorHandlerFactory
+    private static final ListenerConfiguration DEFAULT_LISTENER_CONFIGURATION = ListenerConfiguration
+            .stepBuilder()
+            .groupIdApplicationDefault()
+            .maxPollRecordsKafkaDefault()
+            .maxPollIntervalKafkaDefault()
+            .continueFromPreviousOffsetOnAssignment()
+            .build();
+
+    private static EntityTopicNameParameters entityTopicNameParameters(String resourceName) {
+        return EntityTopicNameParameters
+                .builder()
+                .topicNamePrefixParameters(TopicNamePrefixParameters
+                        .stepBuilder()
+                        .orgIdApplicationDefault()
+                        .domainContextApplicationDefault()
+                        .build())
+                .resourceName(resourceName)
+                .build();
+    }
+
+    private <T> ParameterizedListenerContainerFactory<T> createEntityRecordListenerContainerFactory(
+            Class<T> resourceClass,
+            Consumer<ConsumerRecord<String, T>> recordProcessor
     ) {
-        this.listenerContainerFactoryService = listenerContainerFactoryService;
-        this.errorHandlerFactory = errorHandlerFactory;
+        return listenerContainerFactoryService.createRecordListenerContainerFactory(
+                resourceClass,
+                recordProcessor,
+                DEFAULT_LISTENER_CONFIGURATION,
+                errorHandlerFactory.createErrorHandler(ErrorHandlerConfiguration.<T>builder().build())
+        );
     }
 
     private <T extends FintLinks> ConcurrentMessageListenerContainer<String, T> createCacheConsumer(
@@ -46,47 +76,13 @@ public class EntityConsumersConfiguration {
             Class<T> resourceClass,
             FintCache<String, T> cache
     ) {
-        return createRecordListenerFactory(
+        return createEntityRecordListenerContainerFactory(
                 resourceClass,
                 consumerRecord -> cache.put(
                         ResourceLinkUtil.getSelfLinks(consumerRecord.value()),
                         consumerRecord.value()
                 )
-        ).createContainer(topic(resourceReference));
-    }
-
-    private <T> ParameterizedListenerContainerFactory<T> createRecordListenerFactory(
-            Class<T> resourceClass,
-            java.util.function.Consumer<ConsumerRecord<String, T>> recordProcessor
-    ) {
-        return listenerContainerFactoryService.createRecordListenerContainerFactory(
-                resourceClass,
-                recordProcessor,
-                ListenerConfiguration.stepBuilder()
-                        .groupIdApplicationDefault()
-                        .maxPollRecordsKafkaDefault()
-                        .maxPollIntervalKafkaDefault()
-                        .seekToBeginningOnAssignment()
-                        .build(),
-                errorHandlerFactory.createErrorHandler(
-                        ErrorHandlerConfiguration.<T>stepBuilder()
-                                .noRetries()
-                                .skipFailedRecords()
-                                .build()
-                )
-        );
-    }
-
-    private EntityTopicNameParameters topic(String resourceName) {
-        return EntityTopicNameParameters.builder()
-                .topicNamePrefixParameters(
-                        TopicNamePrefixParameters.stepBuilder()
-                                .orgIdApplicationDefault()
-                                .domainContextApplicationDefault()
-                                .build()
-                )
-                .resourceName(resourceName)
-                .build();
+        ).createContainer(entityTopicNameParameters(resourceReference));
     }
 
     @Bean
@@ -135,8 +131,8 @@ public class EntityConsumersConfiguration {
 
     @Bean
     ConcurrentMessageListenerContainer<String, ElevResource> elevResourceEntityConsumer(
-            FintCache<String,ElevResource> elevResourceCache
-    ){
+            FintCache<String, ElevResource> elevResourceCache
+    ) {
         return createCacheConsumer(
                 "utdanning-elev-elev",
                 ElevResource.class,
@@ -147,7 +143,7 @@ public class EntityConsumersConfiguration {
     @Bean
     ConcurrentMessageListenerContainer<String, PersonResource> personResourceUtdanningEntityConsumer(
             FintCache<String, PersonResource> personResourceCache
-    ){
+    ) {
         return createCacheConsumer(
                 "utdanning-elev-person",
                 PersonResource.class,
@@ -158,7 +154,7 @@ public class EntityConsumersConfiguration {
     @Bean
     ConcurrentMessageListenerContainer<String, ElevforholdResource> elevforholdResourceEntityConsumer(
             FintCache<String, ElevforholdResource> elevforholdResourceCache
-    ){
+    ) {
         return createCacheConsumer(
                 "utdanning-elev-elevforhold",
                 ElevforholdResource.class,
@@ -168,8 +164,8 @@ public class EntityConsumersConfiguration {
 
     @Bean
     ConcurrentMessageListenerContainer<String, SkoleResource> skoleResourceEntityConsumer(
-            FintCache<String,SkoleResource> skoleResourceCache
-    ){
+            FintCache<String, SkoleResource> skoleResourceCache
+    ) {
         return createCacheConsumer(
                 "utdanning-utdanningsprogram-skole",
                 SkoleResource.class,
@@ -180,68 +176,79 @@ public class EntityConsumersConfiguration {
     @Bean
     ConcurrentMessageListenerContainer<String, SkoleressursResource> skoleressursResourceEntityConsumer(
             FintCache<String, SkoleressursResource> skoleressursResourceCache,
-            FintCache<String,Long> employeeInSchoolCache
-    ){
-        ParameterizedListenerContainerFactory<SkoleressursResource> skoleressursConsumerFactory =
-                createRecordListenerFactory(
-                        SkoleressursResource.class,
-                        consumerRecord -> {
-                            String personalressursHref = consumerRecord.value().getPersonalressurs().get(0).getHref();
-                            String key = personalressursHref.substring(personalressursHref.lastIndexOf("/") +1);
-                            skoleressursResourceCache.put(
-                                           key,
-                                           consumerRecord.value()
-                                   );
-                            Long numberOfUndervisningsforhold = (long) consumerRecord.value().getUndervisningsforhold().size();
-                            employeeInSchoolCache.put(
-                                    key,
-                                    numberOfUndervisningsforhold
-                            );
-                        }
-                );
+            FintCache<String, Long> employeeInSchoolCache
+    ) {
+        ParameterizedListenerContainerFactory<SkoleressursResource> skoleressursConsumerFactory
+                = createEntityRecordListenerContainerFactory(
+                SkoleressursResource.class,
+                consumerRecord -> {
+                    String personalressursHref = consumerRecord.value().getPersonalressurs().getFirst().getHref();
+                    String key = personalressursHref.substring(personalressursHref.lastIndexOf("/") + 1);
+                    skoleressursResourceCache.put(
+                            key,
+                            consumerRecord.value()
+                    );
+                    Long numberOfUndervisningsforhold = (long) consumerRecord.value().getUndervisningsforhold().size();
+                    employeeInSchoolCache.put(
+                            key,
+                            numberOfUndervisningsforhold
+                    );
+                }
+        );
 
-        return skoleressursConsumerFactory.createContainer(topic("utdanning-elev-skoleressurs"));
+        return skoleressursConsumerFactory.createContainer(entityTopicNameParameters("utdanning-elev-skoleressurs"));
     }
 
     @Bean
-    ConcurrentMessageListenerContainer<String,AzureUser> azureUserResourceEntityConsumer(
-            FintCache<String, AzureUser> azureUserResourceCache
-    ){
-        return createRecordListenerFactory(
-                AzureUser.class,
+    ConcurrentMessageListenerContainer<String, EntraUserPayload> entraUserResourceEntityConsumer(
+            FintCache<String, EntraUser> azureUserResourceCache,
+            EntraUserService entraUserService) {
+        ParameterizedListenerContainerFactory<EntraUserPayload> entraUserConsumerFactory
+                = createEntityRecordListenerContainerFactory(
+                EntraUserPayload.class,
                 consumerRecord -> {
-                    AzureUser azureUser = consumerRecord.value();
-                    log.debug("Trying to save: {}", azureUser.getUserPrincipalName());
-                    if (azureUser.isValid()) {
+                    if (consumerRecord.value() == null) {
+                        log.info("Received tombstone for user: {}", consumerRecord.key());
+                        entraUserService.handleTombstoneForId(consumerRecord.key());
+                    } else {
+                        EntraUser entraUser = EntraUser.fromRecord(consumerRecord);
+                        if (entraUser.getEmployeeOrStudentId() == null) {
+                            log.warn("Skipping user with missing employeeId or studentId: {}", entraUser.userPrincipalName());
+                            return;
+                        }
                         azureUserResourceCache.put(
-                                azureUser.getEmployeeId() != null
-                                        ? azureUser.getEmployeeId()
-                                        : azureUser.getStudentId(),
-                                azureUser
+                                entraUser.getEmployeeOrStudentId(),
+                                entraUser
                         );
-                        log.debug("Saved to cache: {}", azureUser.getUserPrincipalName());
-                    }
-                    else {
-                        log.debug("Not saved, missing employeeId or studentId: {} with azureID : {}",
-                                azureUser.getUserPrincipalName(), azureUser.getId());
+                        log.debug("Saved to cache: " + entraUser.userPrincipalName());
                     }
                 }
-        ).createContainer(topic("azureuser"));
+        );
+        return entraUserConsumerFactory.createContainer(entityTopicNameParameters("graph-user"));
 
     }
 
 
     @Bean
-    ConcurrentMessageListenerContainer<String,User> userResourceEntityConsumer(
+    ConcurrentMessageListenerContainer<String, User> userResourceEntityConsumer(
             FintCache<String, User> publishUserCache
-    ){
-        return createRecordListenerFactory(
+    ) {
+        return createEntityRecordListenerContainerFactory(
                 User.class,
-                consumerRecord -> publishUserCache.put(
-                        consumerRecord.value().getResourceId(),
-                        consumerRecord.value()
-                )
-        ).createContainer(topic("user"));
+                consumerRecord -> {
+                    if (consumerRecord.value() == null) {
+                        if (consumerRecord.key() != null) {
+                            publishUserCache.remove(consumerRecord.key());
+                        }
+                        return;
+                    }
+
+                    publishUserCache.put(
+                            consumerRecord.value().getResourceId(),
+                            consumerRecord.value()
+                    );
+                }
+        ).createContainer(entityTopicNameParameters("user"));
     }
 
 }

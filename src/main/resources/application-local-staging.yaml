@@ -6,19 +6,18 @@ fint:
   kontroll:
     user:
       publishing:
-        initial-delay: 20000
+        initial-delay: 60000
         initial-delay-elev: 30000
         fixed-delay: 20000
       days-before-start-employee: 60
       days-before-start-student: 60
 novari:
   kafka:
+    application-id: ${fint.application-id}
     default-replicas: 1
     topic:
-      org-id: fintlabs.no
+      org-id: fintlabs-no
       domain-context: kontroll
-    application-id: ${fint.application-id}
-
 spring:
   security:
     oauth2:

@@ -21,10 +21,10 @@ patches:
         value: 
           limits:
             cpu: "5000m"
-            memory: "8000Mi"
+            memory: "10240Mi"
           requests:
             cpu: "1000m"
-            memory: "2000Mi"
+            memory: "6000Mi"
       - op: replace
         path: "/spec/kafka/acls/0/topic"
         value: "afk-no.kontroll.*"
@@ -36,7 +36,7 @@ patches:
         value: "afk-no-fint-kontroll-user-factory"
       - op: replace
         path: "/spec/env/4/value"
-        value: "-XX:+ExitOnOutOfMemoryError -Xmx7950m"
+        value: "-XX:+ExitOnOutOfMemoryError -Xmx9984m"
       - op: replace
         path: "/spec/env/5/value"
         value: "14"
