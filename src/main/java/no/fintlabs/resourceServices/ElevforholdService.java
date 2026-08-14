@@ -73,12 +73,18 @@ public class ElevforholdService {
     }
 
     public Optional<OrganisasjonselementResource> getSkoleOrgUnit(SkoleResource skoleResource) {
-        // legg inn sjekk på null
+        if (skoleResource == null
+                || skoleResource.getOrganisasjon() == null
+                || skoleResource.getOrganisasjon().isEmpty()
+                || skoleResource.getOrganisasjon().getFirst() == null
+                || skoleResource.getOrganisasjon().getFirst().getHref() == null) {
+            log.info("SkoleResource does not have organisasjon");
+            return Optional.empty();
+        }
+
         String skoleOrgUnitref = skoleResource.getOrganisasjon().getFirst().getHref();
-        //Legg på sjekk på null
         OrganisasjonselementResource organisasjonselementResource = organisasjonselementResourceCache
                 .get(ResourceLinkUtil.organisasjonsKodeToLowerCase(skoleOrgUnitref));
         return Optional.ofNullable(organisasjonselementResource);
     }
-
 }
