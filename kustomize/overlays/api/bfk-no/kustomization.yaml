@@ -43,6 +43,9 @@ patches:
       - op: replace
         path: "/spec/env/7/value"
         value: "bfk-no"
+      - op: replace
+        path: "/spec/env/2/value"
+        value: "600000"
     target:
       kind: Application
       name: fint-kontroll-user-factory
