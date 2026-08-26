@@ -30,6 +30,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   CLUSTER_NAME: ${{ inputs.cluster }}
   ORG: ${{ inputs.org }}
+  JAVA-VERSION: "21"
+  JAVA-DISTRIBUTION: "zulu"
 
 jobs:
   cd:
@@ -39,7 +41,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@v8
         name: Get resource group name
         id: rg
         with:
@@ -48,7 +50,7 @@ jobs:
             return `rg-${a[0]}-${a[1]}`
           result-encoding: string
 
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@v8
         name: Get environment
         id: environment
         with:
@@ -56,7 +58,7 @@ jobs:
             const a = '${{ inputs.cluster }}'.split('-')
             return `${a[1]}`
           result-encoding: string
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@v8
         name: Get auth
         id: auth
         with:
@@ -71,10 +73,19 @@ jobs:
           echo "Environment: ${{ steps.environment.outputs.result }}"
           echo "OrgId: $ORG"
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: ${{ env.JAVA-DISTRIBUTION }}
+          java-version: ${{ env.JAVA-VERSION }}
+          cache: 'gradle'
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -82,14 +93,14 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,enable=true,priority=100,prefix=sha-,suffix=,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -103,6 +114,20 @@ jobs:
           kustomizationPath: 'kustomize/overlays/${{ steps.environment.outputs.result }}/${{ env.ORG}}'
         id: bake
 
+      - name: Substitute image into baked YAML
+        id: substitute
+        uses: Azure/k8s-artifact-substitute@v2
+        with:
+          manifests: ${{ steps.bake.outputs.manifestsBundle }}
+          images: ${{ steps.meta.outputs.tags }}
+
+      - name: Copy substituted manifest into workspace
+        id: bake-in-workspace
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.baked"
+          cp "${{ steps.substitute.outputs.manifests }}" "$GITHUB_WORKSPACE/.baked/manifest.yaml"
+          echo "manifest=$GITHUB_WORKSPACE/.baked/manifest.yaml" >> "$GITHUB_OUTPUT"
+
       - uses: azure/login@v3
         with:
           creds: "${{ secrets[format('AKS_{0}_FINT_GITHUB', steps.environment.outputs.result)] }}"
@@ -112,7 +137,7 @@ jobs:
           kubelogin-version: 'v0.0.32'
 
       - name: Set the target cluster
-        uses: azure/aks-set-context@v5
+        uses: azure/aks-set-context@v4
         with:
           cluster-name: ${{ env.CLUSTER_NAME }}
           resource-group: ${{ steps.rg.outputs.result }}
@@ -120,10 +145,9 @@ jobs:
           use-kubelogin: 'true'
 
       - name: Deploy to ${{ env.CLUSTER_NAME }}
-        uses: azure/k8s-deploy@v5.0.3
+        uses: azure/k8s-deploy@v7.0.0
         with:
-          manifests: ${{ steps.bake.outputs.manifestsBundle }}
-          images: |
-            ${{ steps.meta.outputs.tags }}
+          manifests: ${{ steps.bake-in-workspace.outputs.manifest }}
           namespace: ${{ env.ORG }}
           action: deploy
+          pull-images: false
