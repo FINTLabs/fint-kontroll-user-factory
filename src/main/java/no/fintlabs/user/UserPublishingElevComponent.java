@@ -13,6 +13,7 @@ import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.resourceServices.ElevService;
 import no.fintlabs.resourceServices.ElevforholdService;
 import no.fintlabs.resourceServices.PersonUtdanningService;
+import no.fintlabs.resourceServices.ResourceLookupResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -46,21 +47,21 @@ public class UserPublishingElevComponent {
     public void publishElevUsers() {
         Date currentTime = Date.from(Instant.now());
         log.info("<< Start scheduled import of students >>");
-        List<ElevResource> allElevUsersWithElevforhold = elevService.getAllEleverWithElevforhold();
+        List<ElevResource> allElevUsers = elevService.getAllElever();
 
 
-        List<User> allValidElevUsers = allElevUsersWithElevforhold
+        List<User> allElevUsersToPublish = allElevUsers
                 .stream()
                 .map(elevResource -> createUser(elevResource, currentTime))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
 
-        List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allValidElevUsers);
-        log.info("Number of elevressurser read from FINT: {}", allElevUsersWithElevforhold.size());
+        List<User> publishedElevUsers = userEntityProducerService.publishChangedUsers(allElevUsersToPublish);
+        log.info("Number of elevressurser read from FINT: {}", allElevUsers.size());
         log.info("Number of elevforhold in cache {}", elevforholdService.getNumberOfElevforholdInCache());
         log.info("Number of users from Entra ID: {}", entraUserService.getNumberOfEntraUsersInCache());
-        log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allValidElevUsers.size());
+        log.info("Published {} of {} students users in cache ", publishedElevUsers.size(), allElevUsersToPublish.size());
         log.debug("Ids of published users (students) : {}",
                 publishedElevUsers.stream()
                         .map(User::getResourceId)
@@ -70,37 +71,59 @@ public class UserPublishingElevComponent {
 
     }
 
+    public Optional<User> createUser(ElevResource elevResource) {
+        return createUser(elevResource, Date.from(Instant.now()));
+    }
+
     public Optional<User> createUser(ElevResource elevResource, Date currentTime) {
         String hrefSelfLink = ResourceLinkUtil.getFirstSelfLink(elevResource);
         String resourceId = hrefSelfLink.substring(hrefSelfLink.lastIndexOf("/") + 1);
 
-        Optional<PersonResource> personResourceOptional = personUtdanningService
-                .getPersonUtdanning(elevResource);
-        if (personResourceOptional.isEmpty()) {
-            log.warn("Creating user (student) failed, resourceId={}, missing personressurs", resourceId);
-            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
+        ResourceLookupResult<PersonResource> personLookup = personUtdanningService
+                .resolvePersonUtdanning(elevResource);
+        if (personLookup.isMissingLink()) {
+            return createInvalidStudent(resourceId, "missing person link");
+        }
+        if (personLookup.isCacheMiss()) {
+            return skipStudent(resourceId, "missing linked person in cache");
         }
 
-        List<ElevforholdResource> allLinkedElevForholds = elevforholdService.getAllForElev(elevResource.getElevforhold());
-        Optional<ElevforholdResource> mainElevForholdOptional = elevforholdService.getMainElevforhold(allLinkedElevForholds, currentTime);
+        ResourceLookupResult<List<ElevforholdResource>> elevforholdLookup =
+                elevforholdService.resolveAllForElev(elevResource.getElevforhold());
+        if (elevforholdLookup.isMissingLink()) {
+            return createInvalidStudent(resourceId, "missing elevforhold link");
+        }
+        if (elevforholdLookup.isCacheMiss()) {
+            return skipStudent(resourceId, "missing linked elevforhold in cache");
+        }
 
+        List<ElevforholdResource> allLinkedElevForholds = elevforholdLookup.resource();
+        if (allLinkedElevForholds.isEmpty()) {
+            return createInvalidStudent(resourceId, "missing gyldighetsperiode on linked elevforhold");
+        }
+
+        Optional<ElevforholdResource> mainElevForholdOptional =
+                elevforholdService.getMainElevforhold(allLinkedElevForholds, currentTime);
         if (mainElevForholdOptional.isEmpty()) {
-            log.info("Creating user failed, resourceId={}, missing or not valid elevforhold", resourceId);
-            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
+            return createInvalidStudent(resourceId, "missing gyldighetsperiode on linked elevforhold");
         }
 
-        Optional<SkoleResource> skoleOptional = mainElevForholdOptional
-                .flatMap(elevforholdService::getSkole);
-        if (skoleOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing skole", resourceId);
-            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
+        ResourceLookupResult<SkoleResource> skoleLookup =
+                elevforholdService.resolveSkole(mainElevForholdOptional.get());
+        if (skoleLookup.isMissingLink()) {
+            return createInvalidStudent(resourceId, "missing skole link");
+        }
+        if (skoleLookup.isCacheMiss()) {
+            return skipStudent(resourceId, "missing linked skole in cache");
         }
 
-        Optional<OrganisasjonselementResource> skoleOrgUnitOptional = skoleOptional
-                .flatMap(elevforholdService::getSkoleOrgUnit);
-        if (skoleOrgUnitOptional.isEmpty()) {
-            log.info("Creating user (student) failed, resourceId={}, missing organisasjonelement for skole", resourceId);
-            return Optional.empty();
+        ResourceLookupResult<OrganisasjonselementResource> skoleOrgUnitLookup =
+                elevforholdService.resolveSkoleOrgUnit(skoleLookup.resource());
+        if (skoleOrgUnitLookup.isMissingLink()) {
+            return createInvalidStudent(resourceId, "missing organisasjonelement link");
+        }
+        if (skoleOrgUnitLookup.isCacheMiss()) {
+            return skipStudent(resourceId, "missing linked organisasjonelement in cache");
         }
 
         //Entra attributes
@@ -113,20 +136,17 @@ public class UserPublishingElevComponent {
             log.info("Creating user (student) failed, resourceId={}, user is deleted in Entra", resourceId);
             return Optional.empty();
         }
-        String fintStatus = UserUtils.getFINTElevStatus(mainElevForholdOptional.get(), currentTime);
 
         Date validFrom = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getStart).min(Comparator.naturalOrder()).orElse(null);
         Date validTo = allLinkedElevForholds.stream().map(ElevforholdResource::getGyldighetsperiode).map(Periode::getSlutt).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
 
-
         return Optional.of(
                 createUser(
-                        personResourceOptional.get(),
-                        skoleOrgUnitOptional.get().getNavn(),
-                        skoleOrgUnitOptional.get().getOrganisasjonsId().getIdentifikatorverdi(),
+                        personLookup.resource(),
+                        skoleOrgUnitLookup.resource().getNavn(),
+                        skoleOrgUnitLookup.resource().getOrganisasjonsId().getIdentifikatorverdi(),
                         entraUserAttributes.get(),
                         resourceId,
-                        fintStatus,
                         validFrom,
                         validTo
                 )
@@ -140,7 +160,6 @@ public class UserPublishingElevComponent {
                             String organisasjonsId,
                             EntraUserAttributes entraUserAttributes,
                             String resourceId,
-                            String fintStatus,
                             Date validFrom,
                             Date validTo
     ) {
@@ -151,18 +170,68 @@ public class UserPublishingElevComponent {
                 .resourceId(resourceId)
                 .firstName(personResource.getNavn().getFornavn())
                 .lastName(personResource.getNavn().getEtternavn())
-                .userType(String.valueOf(UserUtils.UserType.STUDENT))
+                .userType(UserType.STUDENT.name())
                 .mainOrganisationUnitName(organisasjonsnavn)
                 .mainOrganisationUnitId(organisasjonsId)
                 .identityProviderUserObjectId(UUID.fromString(entraUserAttributes.identityProviderUserObjectId()))
                 .email(entraUserAttributes.email())
                 .userName(entraUserAttributes.userName())
-                .fintStatus(fintStatus)
+                .fintStatus(FintStatus.VALID)
                 .entraStatus(entraUserAttributes.entraStatus())
                 .validFrom(validFrom)
                 .validTo(validTo)
                 .build();
     }
 
+    private Optional<User> createInvalidStudent(String resourceId, String reason) {
+        log.info("Creating user (student) failed, resourceId={}, reason={}", resourceId, reason);
+
+        Optional<EntraUserAttributes> entraUserAttributes = entraUserService.getEntraUserAttributes(resourceId);
+        if (entraUserAttributes
+                .map(EntraUserAttributes::entraStatus)
+                .filter(UserStatus.DELETED::equals)
+                .isPresent()) {
+            return skipStudent(resourceId, "user is deleted in Entra");
+        }
+
+        // Invalid payloads are intentionally minimal. The catalog preserves any
+        // existing user details and updates only status/statusChanged.
+        User.UserBuilder userBuilder = User.builder()
+                .resourceId(resourceId)
+                .userType(UserType.STUDENT.name())
+                .fintStatus(FintStatus.INVALID);
+
+        entraUserAttributes
+                .map(EntraUserAttributes::identityProviderUserObjectId)
+                .flatMap(identityProviderUserObjectId ->
+                        parseIdentityProviderUserObjectId(resourceId, identityProviderUserObjectId))
+                .ifPresent(userBuilder::identityProviderUserObjectId);
+
+        return Optional.of(userBuilder.build());
+    }
+
+    private Optional<User> skipStudent(String resourceId, String reason) {
+        log.info("Creating user (student) skipped, resourceId={}, reason={}", resourceId, reason);
+        return Optional.empty();
+    }
+
+    private Optional<UUID> parseIdentityProviderUserObjectId(
+            String resourceId,
+            String identityProviderUserObjectId
+    ) {
+        if (identityProviderUserObjectId == null || identityProviderUserObjectId.isBlank()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(UUID.fromString(identityProviderUserObjectId));
+        } catch (IllegalArgumentException e) {
+            log.warn(
+                    "Ignoring invalid identityProviderUserObjectId for invalid student, resourceId={}",
+                    resourceId
+            );
+            return Optional.empty();
+        }
+    }
 
 }

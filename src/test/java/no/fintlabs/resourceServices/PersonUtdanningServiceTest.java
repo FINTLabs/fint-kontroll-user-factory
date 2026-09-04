@@ -4,7 +4,6 @@ import no.novari.fint.model.resource.Link;
 import no.novari.fint.model.resource.felles.PersonResource;
 import no.novari.fint.model.resource.utdanning.elev.ElevResource;
 import no.fintlabs.cache.FintCache;
-import no.fintlabs.links.NoSuchLinkException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,8 +14,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 class PersonUtdanningServiceTest {
@@ -41,11 +41,14 @@ class PersonUtdanningServiceTest {
                 .contains(expectedPerson);
     }
 
-   @Test
-    void shouldThrowWhenElevHasNoPersonLink() {
+    @Test
+    void resolvePersonUtdanningShouldReturnMissingLinkWhenElevHasNoPersonLink() {
         ElevResource elevResource = new ElevResource();
-        assertThat(assertThrows(NoSuchLinkException.class,
-                () -> personUtdanningService.getPersonUtdanning(elevResource)).getMessage()).contains("No link for 'Elev'");
+
+        ResourceLookupResult<PersonResource> result = personUtdanningService.resolvePersonUtdanning(elevResource);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
+        verify(personResourceCache, never()).getOptional(anyString());
     }
 
     @Test
@@ -58,5 +61,18 @@ class PersonUtdanningServiceTest {
         Optional<PersonResource> result = personUtdanningService.getPersonUtdanning(elevResource);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void resolvePersonUtdanningShouldReturnCacheMissWhenLinkedPersonIsMissingFromCache() {
+        ElevResource elevResource = new ElevResource();
+        elevResource.addPerson(Link.with("systemId/123"));
+
+        when(personResourceCache.getOptional("systemid/123")).thenReturn(Optional.empty());
+
+        ResourceLookupResult<PersonResource> result = personUtdanningService.resolvePersonUtdanning(elevResource);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
+        verify(personResourceCache).getOptional("systemid/123");
     }
 }

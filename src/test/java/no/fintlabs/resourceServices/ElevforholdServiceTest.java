@@ -30,14 +30,21 @@ class ElevforholdServiceTest {
     @Mock
     private FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache;
 
-    private  ElevforholdService elevforholdService;
+    @Mock
+    private GyldighetsperiodeService gyldighetsperiodeService;
 
+    private  ElevforholdService elevforholdService;
     private Date currentTime;
 
     @BeforeEach
     void init() {
         currentTime = new Date();
-        elevforholdService = new ElevforholdService(elevforholdResourceCache, skoleResourceCache, organisasjonselementResourceCache);
+        elevforholdService = new ElevforholdService(
+                gyldighetsperiodeService,
+                elevforholdResourceCache,
+                skoleResourceCache,
+                organisasjonselementResourceCache
+        );
     }
 
     @Test
@@ -159,12 +166,15 @@ class ElevforholdServiceTest {
         assertThat(result).isEmpty();
     }
 
-
     @Test
     void getMainElevforhold_shouldReturnActiveNowIfPresent() {
         ElevforholdResource activeNow = elevforhold(daysFromNow(-1), daysFromNow(1));
-
         ElevforholdResource future = elevforhold(daysFromNow(10), daysFromNow(20));
+
+        when(gyldighetsperiodeService.isValid(future.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(false);
+        when(gyldighetsperiodeService.isValid(activeNow.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(true);
 
         Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
                 List.of(future, activeNow), currentTime);
@@ -177,11 +187,25 @@ class ElevforholdServiceTest {
         ElevforholdResource past = elevforhold(daysFromNow(-20), daysFromNow(-10));
         ElevforholdResource future = elevforhold(daysFromNow(10), daysFromNow(20));
 
+        when(gyldighetsperiodeService.isValid(past.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(false);
+        when(gyldighetsperiodeService.isValid(future.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(false);
+
         Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
                 List.of(past, future), currentTime);
 
         assertThat(result).contains(past);
     }
+
+    @Test
+    void getMainElevforhold_shouldReturnEmptyForEmptyList() {
+        Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
+                Collections.emptyList(), currentTime);
+
+        assertThat(result).isEmpty();
+    }
+
     private static Link link(String href) {
         Link l = new Link();
         l.setVerdi(href);
@@ -212,12 +236,65 @@ class ElevforholdServiceTest {
                 java.time.Instant.now().plus(java.time.Period.ofDays(days))
         );
     }
+    @Test
+    void resolveAllForElev_shouldReturnMissingLinkWhenNoLinks() {
+        ResourceLookupResult<List<ElevforholdResource>> result =
+                elevforholdService.resolveAllForElev(Collections.emptyList());
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
+    }
 
     @Test
-    void getMainElevforhold_shouldReturnEmptyForEmptyList() {
-        Optional<ElevforholdResource> result = elevforholdService.getMainElevforhold(
-                Collections.emptyList(), currentTime);
+    void resolveAllForElev_shouldReturnCacheMissWhenLinkedResourceIsMissing() {
+        Link link = Link.with("systemId/elevforhold/123");
+        when(elevforholdResourceCache.getOptional("systemid/elevforhold/123")).thenReturn(Optional.empty());
 
-        assertThat(result).isEmpty();
+        ResourceLookupResult<List<ElevforholdResource>> result =
+                elevforholdService.resolveAllForElev(List.of(link));
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
     }
+
+    @Test
+    void resolveSkole_shouldReturnMissingLinkWhenElevforholdHasNoSkoleLink() {
+        ResourceLookupResult<SkoleResource> result = elevforholdService.resolveSkole(new ElevforholdResource());
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
+    }
+
+    @Test
+    void resolveSkole_shouldReturnCacheMissWhenLinkedSkoleIsMissing() {
+        ElevforholdResource elevforhold = new ElevforholdResource();
+        elevforhold.addSkole(Link.with("systemId/skole/123"));
+        when(skoleResourceCache.getOptional("systemid/skole/123")).thenReturn(Optional.empty());
+
+        ResourceLookupResult<SkoleResource> result = elevforholdService.resolveSkole(elevforhold);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
+    }
+
+    @Test
+    void resolveSkoleOrgUnit_shouldReturnCacheMissWhenLinkedOrgUnitIsMissing() {
+        SkoleResource skoleResource = new SkoleResource();
+        skoleResource.addOrganisasjon(Link.with("organisasjonsKode/123"));
+        when(organisasjonselementResourceCache.get("organisasjonskode/123")).thenReturn(null);
+
+        ResourceLookupResult<OrganisasjonselementResource> result =
+                elevforholdService.resolveSkoleOrgUnit(skoleResource);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
+    }
+
+    @Test
+    void resolveSkoleOrgUnit_shouldReturnMissingLinkWhenOrgUnitHrefIsBlank() {
+        SkoleResource skoleResource = new SkoleResource();
+        skoleResource.addOrganisasjon(Link.with(" "));
+
+        ResourceLookupResult<OrganisasjonselementResource> result =
+                elevforholdService.resolveSkoleOrgUnit(skoleResource);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
+        verifyNoInteractions(organisasjonselementResourceCache);
+    }
+
 }

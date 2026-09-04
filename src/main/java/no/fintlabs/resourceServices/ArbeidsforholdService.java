@@ -32,17 +32,34 @@ public class ArbeidsforholdService {
         this.organisasjonselementResourceCache = organisasjonselementResourceCache;
     }
 
-
     public Optional<ArbeidsforholdResource> getHovedArbeidsforhold(
             Collection<Link> arbeidsforholdLinks,
             Date currentTime,
             String resourceId) {
-        List<ArbeidsforholdResource> allValidArbeidsresurser = getAllValidArbeidsforholdAsList(arbeidsforholdLinks,
-                currentTime, resourceId);
-        Optional<ArbeidsforholdResource> hovedarbeidsforhold =  getValidMainArbeidsforhold(allValidArbeidsresurser, currentTime, resourceId)
-                .or(() -> getValidNonMainArbeidsforhold(allValidArbeidsresurser, currentTime,resourceId));
+
+        List<ArbeidsforholdResource> allValidArbeidsforhold =
+                getAllValidArbeidsforholdAsList(arbeidsforholdLinks, currentTime, resourceId);
+        return selectHovedArbeidsforhold(allValidArbeidsforhold, resourceId);
+    }
+
+    public Optional<ArbeidsforholdResource> getHovedArbeidsforhold(
+            List<ArbeidsforholdResource> arbeidsforholdResources,
+            Date currentTime,
+            String resourceId) {
+
+        List<ArbeidsforholdResource> allValidArbeidsforhold =
+                getAllValidArbeidsforholdAsList(arbeidsforholdResources, currentTime);
+        return selectHovedArbeidsforhold(allValidArbeidsforhold, resourceId);
+    }
+
+    private Optional<ArbeidsforholdResource> selectHovedArbeidsforhold(
+            List<ArbeidsforholdResource> allValidArbeidsforhold,
+            String resourceId) {
+
+        Optional<ArbeidsforholdResource> hovedarbeidsforhold = getMainArbeidsforhold(allValidArbeidsforhold)
+                .or(() -> getNonMainArbeidsforhold(allValidArbeidsforhold));
         hovedarbeidsforhold.ifPresent(arbeidsforholdResource -> log.info("Hovedarbeidsforhold funnet:  {} for user with resourceId {}", arbeidsforholdResource.getSystemId().getIdentifikatorverdi(), resourceId));
-        if (hovedarbeidsforhold.isEmpty()){
+        if (hovedarbeidsforhold.isEmpty()) {
             log.info("No hovedarbeidsforhold found for resourceId {}", resourceId);
         }
 
@@ -50,53 +67,97 @@ public class ArbeidsforholdService {
     }
 
 
+    public ResourceLookupResult<List<ArbeidsforholdResource>> resolveAllArbeidsforhold(
+            Collection<Link> arbeidsforholdLinks) {
+
+        if (arbeidsforholdLinks == null || arbeidsforholdLinks.isEmpty()) {
+            return ResourceLookupResult.missingLink();
+        }
+
+        List<ArbeidsforholdResource> arbeidsforholdResources = new ArrayList<>();
+        for (Link link : arbeidsforholdLinks) {
+            if (link == null || link.getHref() == null || link.getHref().isBlank()) {
+                return ResourceLookupResult.missingLink();
+            }
+
+            String href = ResourceLinkUtil.systemIdToLowerCase(link.getHref());
+            Optional<ArbeidsforholdResource> arbeidsforholdResource = arbeidsforholdResourceCache.getOptional(href);
+            if (arbeidsforholdResource.isEmpty()) {
+                log.info("Arbeidsforhold not found in cache: {}", href);
+                return ResourceLookupResult.cacheMiss();
+            }
+
+            arbeidsforholdResources.add(arbeidsforholdResource.get());
+        }
+
+        return ResourceLookupResult.found(arbeidsforholdResources);
+    }
+
+    public List<ArbeidsforholdResource> getAllValidArbeidsforholdAsList(
+            List<ArbeidsforholdResource> arbeidsforholdResources,
+            Date currentTime) {
+
+        return arbeidsforholdResources
+                .stream()
+                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
+                .toList();
+    }
+
     public List<ArbeidsforholdResource> getAllValidArbeidsforholdAsList(
             Collection<Link> arbeidsforholdLinks,
-            Date currenTime,
+            Date currentTime,
             String resourceId) {
+
+        if (arbeidsforholdLinks == null || arbeidsforholdLinks.isEmpty()) {
+            return List.of();
+        }
 
         return arbeidsforholdLinks
                 .stream()
+                .filter(link -> link != null && link.getHref() != null && !link.getHref().isBlank())
                 .map(Link::getHref)
                 .map(ResourceLinkUtil::systemIdToLowerCase)
                 .map(arbeidsforholdResourceCache::getOptional)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currenTime))
+                .flatMap(Optional::stream)
+                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
                 .toList();
     }
 
 
-    private Optional<ArbeidsforholdResource> getValidMainArbeidsforhold(
-            List<ArbeidsforholdResource> arbeidsforholdResources, Date currentTime, String resourceId) {
+    private Optional<ArbeidsforholdResource> getMainArbeidsforhold(
+            List<ArbeidsforholdResource> arbeidsforholdResources) {
 
         return arbeidsforholdResources
                 .stream()
-                .filter(ArbeidsforholdResource::getHovedstilling)
-                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
+                .filter(arbeidsforholdResource -> Boolean.TRUE.equals(arbeidsforholdResource.getHovedstilling()))
                 .findFirst();
     }
 
-    private Optional<ArbeidsforholdResource> getValidNonMainArbeidsforhold(
-            List<ArbeidsforholdResource> arbeidsforholdResources, Date currentTime, String resourceId) {
+    private Optional<ArbeidsforholdResource> getNonMainArbeidsforhold(
+            List<ArbeidsforholdResource> arbeidsforholdResources) {
 
         return arbeidsforholdResources
                 .stream()
-                .filter(arbeidsforholdResource -> !arbeidsforholdResource.getHovedstilling())
-                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
-                .max(Comparator.comparingLong(ArbeidsforholdResource::getAnsettelsesprosent));
+                .filter(arbeidsforholdResource -> !Boolean.TRUE.equals(arbeidsforholdResource.getHovedstilling()))
+                .max(Comparator.comparingLong(this::getAnsettelsesprosent));
     }
 
 
+    private long getAnsettelsesprosent(ArbeidsforholdResource arbeidsforholdResource) {
+        Long ansettelsesprosent = arbeidsforholdResource.getAnsettelsesprosent();
+        return ansettelsesprosent == null ? 0L : ansettelsesprosent;
+    }
+
     private boolean isValid(ArbeidsforholdResource arbeidsforholdResource, Date currentTime) {
         return gyldighetsperiodeService.isValid(
-                arbeidsforholdResource.getGyldighetsperiode()  , currentTime, daysBeforeStartEmployee
+                arbeidsforholdResource.getGyldighetsperiode(), currentTime, daysBeforeStartEmployee
         );
     }
 
 
-    public List<Optional<OrganisasjonselementResource>> getAllArbeidssteder(List<ArbeidsforholdResource> arbeidsforholdResourceList,
-                                                                            Date currentTime) {
+    public List<Optional<OrganisasjonselementResource>> getAllArbeidssteder(
+            List<ArbeidsforholdResource> arbeidsforholdResourceList,
+            Date currentTime) {
 
         return arbeidsforholdResourceList
                 .stream()
@@ -105,14 +166,53 @@ public class ArbeidsforholdService {
     }
 
 
-    public Optional<OrganisasjonselementResource> getArbeidssted(ArbeidsforholdResource arbeidsforholdResource, Date currentTime) {
+    public Optional<OrganisasjonselementResource> getArbeidssted(
+            ArbeidsforholdResource arbeidsforholdResource,
+            Date currentTime) {
+        return resolveArbeidssted(arbeidsforholdResource, currentTime).asOptional();
+    }
 
+    public ResourceLookupResult<OrganisasjonselementResource> resolveArbeidssted(
+            ArbeidsforholdResource arbeidsforholdResource,
+            Date currentTime
+    ) {
+        if (arbeidsforholdResource == null) {
+            return ResourceLookupResult.missingLink();
+        }
 
-        return ResourceLinkUtil.getOptionalFirstLink(arbeidsforholdResource::getArbeidssted)
-                .map(ResourceLinkUtil::organisasjonsIdToLowerCase)
-                .flatMap(organisasjonselementResourceCache::getOptional)
-                .filter(organisasjonselementResource ->
-                        gyldighetsperiodeService.isValid(organisasjonselementResource.getGyldighetsperiode(), currentTime,daysBeforeStartEmployee));
+        Optional<String> arbeidsstedHref = getFirstHref(arbeidsforholdResource.getArbeidssted())
+                .map(ResourceLinkUtil::systemIdToLowerCase)
+                .map(ResourceLinkUtil::organisasjonsIdToLowerCase);
+
+        if (arbeidsstedHref.isEmpty()) {
+            return ResourceLookupResult.missingLink();
+        }
+
+        Optional<OrganisasjonselementResource> arbeidssted =
+                organisasjonselementResourceCache.getOptional(arbeidsstedHref.get());
+        if (arbeidssted.isEmpty()) {
+            log.info("Arbeidssted not found in cache: {}", arbeidsstedHref.get());
+            return ResourceLookupResult.cacheMiss();
+        }
+
+        if (!gyldighetsperiodeService.isValid(
+                arbeidssted.get().getGyldighetsperiode(),
+                currentTime,
+                daysBeforeStartEmployee)) {
+            log.info("Arbeidssted is not valid in selection window: {}", arbeidsstedHref.get());
+            return ResourceLookupResult.notValid();
+        }
+
+        return ResourceLookupResult.found(arbeidssted.get());
+    }
+
+    private Optional<String> getFirstHref(List<Link> links) {
+        return Optional.ofNullable(links)
+                .flatMap(linkList -> linkList
+                        .stream()
+                        .filter(link -> link != null && link.getHref() != null && !link.getHref().isBlank())
+                        .findFirst())
+                .map(Link::getHref);
     }
 
 

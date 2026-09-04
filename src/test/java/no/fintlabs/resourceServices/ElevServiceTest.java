@@ -12,7 +12,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +30,7 @@ class ElevServiceTest {
     private ElevService elevService;
 
     @Test
-    void shouldFilterOutElevsWithoutElevforhold() {
+    void shouldReturnElevsWithoutElevforhold() {
         ElevResource elevWithoutElevforhold = new ElevResource();
         ElevResource elevWithElevforhold = new ElevResource();
         elevWithElevforhold.addElevforhold(Link.with("elevforhold/systemId/123"));
@@ -41,13 +40,11 @@ class ElevServiceTest {
                 elevWithElevforhold
         ));
 
-        Date currentTime = new Date();
-
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
+        List<ElevResource> result = elevService.getAllElever();
 
         assertThat(result)
-                .hasSize(1)
-                .containsExactly(elevWithElevforhold);
+                .hasSize(2)
+                .containsExactly(elevWithoutElevforhold, elevWithElevforhold);
     }
 
     @Test
@@ -60,9 +57,7 @@ class ElevServiceTest {
 
         when(elevResourceCache.getAllDistinct()).thenReturn(Arrays.asList(elev1, elev2));
 
-        Date currentTime = new Date();
-
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
+        List<ElevResource> result = elevService.getAllElever();
 
         assertThat(result)
                 .hasSize(2)
@@ -77,9 +72,7 @@ class ElevServiceTest {
 
         when(elevResourceCache.getAllDistinct()).thenReturn(Collections.singletonList(elevWithMultipleElevforhold));
 
-        Date currentTime = new Date();
-
-        List<ElevResource> result = elevService.getAllEleverWithElevforhold();
+        List<ElevResource> result = elevService.getAllElever();
 
         assertThat(result)
                 .hasSize(1)

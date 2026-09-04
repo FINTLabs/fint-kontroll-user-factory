@@ -6,9 +6,12 @@ import no.fintlabs.cache.FintCache;
 import no.fintlabs.user.User;
 import no.fintlabs.user.UserEntityProducerService;
 import no.fintlabs.user.UserStatus;
+import no.fintlabs.user.UserType;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -45,15 +48,39 @@ public class EntraUserService {
         optionalEntraUser.ifPresentOrElse(this::publishDeletedUser,
                 () -> {
                     log.warn("User not found in entra cache: " + key);
-                    publishUserCache.getAllDistinct().stream().filter(u -> u.getIdentityProviderUserObjectId().toString().equals(key)).findFirst().ifPresent(
+                    publishUserCache.getAllDistinct().stream().filter(user -> hasIdentityProviderObjectId(user, key)).findFirst().ifPresent(
                             user ->
                             {
                                 userEntityProducerService.publishTombstoneUser(user.getResourceId());
+                                entraUserCache.put(
+                                        user.getResourceId(),
+                                        deletedEntraUserFromPublishedUser(key, user)
+                                );
                                 log.info("Published user as deleted: {}", user.getIdentityProviderUserObjectId());
                             }
                     );
                 });
 
+    }
+
+    private boolean hasIdentityProviderObjectId(User user, String key) {
+        return Optional.ofNullable(user.getIdentityProviderUserObjectId())
+                .map(UUID::toString)
+                .filter(identityProviderUserObjectId -> Objects.equals(identityProviderUserObjectId, key))
+                .isPresent();
+    }
+
+    private EntraUser deletedEntraUserFromPublishedUser(String key, User user) {
+        boolean isStudent = UserType.STUDENT.name().equals(user.getUserType());
+        return new EntraUser(
+                key,
+                user.getEmail(),
+                user.getUserName(),
+                isStudent ? null : user.getResourceId(),
+                isStudent ? user.getResourceId() : null,
+                null,
+                true
+        );
     }
 
     public void publishDeletedUser(EntraUser entraUser) {

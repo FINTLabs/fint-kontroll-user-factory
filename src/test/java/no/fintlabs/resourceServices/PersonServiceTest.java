@@ -4,7 +4,6 @@ import no.novari.fint.model.resource.Link;
 import no.novari.fint.model.resource.administrasjon.personal.PersonalressursResource;
 import no.novari.fint.model.resource.felles.PersonResource;
 import no.fintlabs.cache.FintCache;
-import no.fintlabs.links.NoSuchLinkException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -57,14 +55,26 @@ class PersonServiceTest {
     }
 
     @Test
-    void shouldThrowNoSuchLinkExceptionWhenPersonalressursHasNoPersonLink() {
+    void resolvePersonShouldReturnMissingLinkWhenPersonalressursHasNoPersonLink() {
         PersonalressursResource personalressurs = new PersonalressursResource();
 
-        assertThatExceptionOfType(NoSuchLinkException.class)
-                .isThrownBy(() -> personService.getPerson(personalressurs))
-                .withMessageContaining("No link for 'Person'");
+        ResourceLookupResult<PersonResource> result = personService.resolvePerson(personalressurs);
 
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
         verify(personResourceCache, never()).getOptional(anyString());
+    }
+
+    @Test
+    void resolvePersonShouldReturnCacheMissWhenLinkedPersonIsMissingFromCache() {
+        PersonalressursResource personalressurs = new PersonalressursResource();
+        personalressurs.addPerson(Link.with("systemId/123"));
+
+        when(personResourceCache.getOptional("systemid/123")).thenReturn(Optional.empty());
+
+        ResourceLookupResult<PersonResource> result = personService.resolvePerson(personalressurs);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
+        verify(personResourceCache).getOptional("systemid/123");
     }
 
     @Test

@@ -15,8 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,7 +38,11 @@ class ArbeidsforholdServiceTest {
     void setUp() {
         currentTime = new Date();
         resourceId = "testResource123";
-        arbeidsforholdService = new ArbeidsforholdService(gyldighetsperiodeService, arbeidsforholdResourceCache, organisasjonselementResourceCache);
+        arbeidsforholdService = new ArbeidsforholdService(
+                gyldighetsperiodeService,
+                arbeidsforholdResourceCache,
+                organisasjonselementResourceCache
+        );
     }
 
     @Test
@@ -48,27 +50,18 @@ class ArbeidsforholdServiceTest {
         ArbeidsforholdResource hovedArbeidsforhold = createArbeidsforholdResource("1", true, 100);
         ArbeidsforholdResource otherArbeidsforhold = createArbeidsforholdResource("2", false, 50);
 
-        Collection<Link> arbeidsforholdLinks = Arrays.asList(
-                Link.with("systemid/1"),
-                Link.with("systemid/2")
-        );
-
-        when(arbeidsforholdResourceCache.getOptional("systemid/1"))
-                .thenReturn(Optional.of(hovedArbeidsforhold));
-        when(arbeidsforholdResourceCache.getOptional("systemid/2"))
-                .thenReturn(Optional.of(otherArbeidsforhold));
-        when(gyldighetsperiodeService.isValid(any(), eq(currentTime), eq(0)))
+        when(gyldighetsperiodeService.isValid(hovedArbeidsforhold.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(true);
+        when(gyldighetsperiodeService.isValid(otherArbeidsforhold.getGyldighetsperiode(), currentTime, 0))
                 .thenReturn(true);
 
         Optional<ArbeidsforholdResource> result = arbeidsforholdService.getHovedArbeidsforhold(
-                arbeidsforholdLinks,
+                List.of(hovedArbeidsforhold, otherArbeidsforhold),
                 currentTime,
                 resourceId
         );
 
-        assertThat(result)
-                .isPresent()
-                .contains(hovedArbeidsforhold);
+        assertThat(result).contains(hovedArbeidsforhold);
     }
 
     @Test
@@ -76,33 +69,46 @@ class ArbeidsforholdServiceTest {
         ArbeidsforholdResource higherPercentage = createArbeidsforholdResource("1", false, 80);
         ArbeidsforholdResource lowerPercentage = createArbeidsforholdResource("2", false, 50);
 
-        Collection<Link> arbeidsforholdLinks = Arrays.asList(
-                Link.with("systemid/1"),
-                Link.with("systemid/2")
-        );
-
-        when(arbeidsforholdResourceCache.getOptional("systemid/1"))
-                .thenReturn(Optional.of(higherPercentage));
-        when(arbeidsforholdResourceCache.getOptional("systemid/2"))
-                .thenReturn(Optional.of(lowerPercentage));
-        when(gyldighetsperiodeService.isValid(any(), eq(currentTime), eq(0)))
+        when(gyldighetsperiodeService.isValid(higherPercentage.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(true);
+        when(gyldighetsperiodeService.isValid(lowerPercentage.getGyldighetsperiode(), currentTime, 0))
                 .thenReturn(true);
 
         Optional<ArbeidsforholdResource> result = arbeidsforholdService.getHovedArbeidsforhold(
-                arbeidsforholdLinks,
+                List.of(higherPercentage, lowerPercentage),
                 currentTime,
                 resourceId
         );
 
-        assertThat(result)
-                .isPresent()
-                .contains(higherPercentage);
+        assertThat(result).contains(higherPercentage);
     }
 
     @Test
-    public void shouldReturnAllValidEmployments() {
-        ArbeidsforholdResource valid1 = createArbeidsforholdResource("1", true, 100);
-        ArbeidsforholdResource valid2 = createArbeidsforholdResource("2", false, 50);
+    public void shouldChooseValidNonMainEmploymentWhenMainEmploymentIsNotValid() {
+        ArbeidsforholdResource futureMain = createArbeidsforholdResource("1", true, 100);
+        futureMain.setGyldighetsperiode(periode(daysFromNow(10), null));
+        ArbeidsforholdResource validNonMain = createArbeidsforholdResource("2", false, 80);
+        validNonMain.setGyldighetsperiode(periode(daysFromNow(-1), null));
+
+        when(gyldighetsperiodeService.isValid(futureMain.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(false);
+        when(gyldighetsperiodeService.isValid(validNonMain.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(true);
+
+        Optional<ArbeidsforholdResource> result = arbeidsforholdService.getHovedArbeidsforhold(
+                List.of(futureMain, validNonMain),
+                currentTime,
+                resourceId
+        );
+
+        assertThat(result).contains(validNonMain);
+    }
+
+    @Test
+    public void shouldReturnAllLinkedEmploymentsWithoutDateFiltering() {
+        ArbeidsforholdResource currentEmployment = createArbeidsforholdResource("1", true, 100);
+        ArbeidsforholdResource futureEmployment = createArbeidsforholdResource("2", false, 50);
+        futureEmployment.setGyldighetsperiode(periode(daysFromNow(9), null));
 
         Collection<Link> arbeidsforholdLinks = Arrays.asList(
                 Link.with("systemid/1"),
@@ -110,21 +116,17 @@ class ArbeidsforholdServiceTest {
         );
 
         when(arbeidsforholdResourceCache.getOptional("systemid/1"))
-                .thenReturn(Optional.of(valid1));
+                .thenReturn(Optional.of(currentEmployment));
         when(arbeidsforholdResourceCache.getOptional("systemid/2"))
-                .thenReturn(Optional.of(valid2));
-        when(gyldighetsperiodeService.isValid(any(), eq(currentTime), eq(0)))
-                .thenReturn(true);
+                .thenReturn(Optional.of(futureEmployment));
 
-        List<ArbeidsforholdResource> result = arbeidsforholdService.getAllValidArbeidsforholdAsList(
-                arbeidsforholdLinks,
-                currentTime,
-                resourceId
-        );
+        ResourceLookupResult<List<ArbeidsforholdResource>> result =
+                arbeidsforholdService.resolveAllArbeidsforhold(arbeidsforholdLinks);
 
-        assertThat(result)
+        assertThat(result.isFound()).isTrue();
+        assertThat(result.resource())
                 .hasSize(2)
-                .containsExactlyInAnyOrder(valid1, valid2);
+                .containsExactlyInAnyOrder(currentEmployment, futureEmployment);
     }
 
     @Test
@@ -133,11 +135,11 @@ class ArbeidsforholdServiceTest {
         arbeidsforhold.addArbeidssted(Link.with("organisasjonselementid/1"));
 
         OrganisasjonselementResource workplace = new OrganisasjonselementResource();
-        workplace.setGyldighetsperiode(new Periode());
+        workplace.setGyldighetsperiode(periode(daysFromNow(9), null));
 
         when(organisasjonselementResourceCache.getOptional("organisasjonselementid/1"))
                 .thenReturn(Optional.of(workplace));
-        when(gyldighetsperiodeService.isValid(any(), eq(currentTime), eq(0)))
+        when(gyldighetsperiodeService.isValid(workplace.getGyldighetsperiode(), currentTime, 0))
                 .thenReturn(true);
 
         Optional<OrganisasjonselementResource> result = arbeidsforholdService.getArbeidssted(
@@ -151,7 +153,51 @@ class ArbeidsforholdServiceTest {
     }
 
     @Test
-    public void getAllArbeidssteder_ShouldReturnAllValidWorkplaces() {
+    public void resolveArbeidssted_ShouldReturnMissingLinkWhenArbeidsstedHrefIsBlank() {
+        ArbeidsforholdResource arbeidsforhold = new ArbeidsforholdResource();
+        arbeidsforhold.addArbeidssted(Link.with(" "));
+
+        ResourceLookupResult<OrganisasjonselementResource> result =
+                arbeidsforholdService.resolveArbeidssted(arbeidsforhold, currentTime);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.MISSING_LINK);
+    }
+
+    @Test
+    public void resolveArbeidssted_ShouldReturnCacheMissWhenArbeidsstedIsMissingFromCache() {
+        ArbeidsforholdResource arbeidsforhold = new ArbeidsforholdResource();
+        arbeidsforhold.addArbeidssted(Link.with("organisasjonsId/1"));
+
+        when(organisasjonselementResourceCache.getOptional("organisasjonsid/1"))
+                .thenReturn(Optional.empty());
+
+        ResourceLookupResult<OrganisasjonselementResource> result =
+                arbeidsforholdService.resolveArbeidssted(arbeidsforhold, currentTime);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.CACHE_MISS);
+    }
+
+    @Test
+    public void resolveArbeidssted_ShouldReturnNotValidWhenWorkplaceIsOutsideSelectionWindow() {
+        ArbeidsforholdResource arbeidsforhold = new ArbeidsforholdResource();
+        arbeidsforhold.addArbeidssted(Link.with("organisasjonsId/1"));
+
+        OrganisasjonselementResource workplace = new OrganisasjonselementResource();
+        workplace.setGyldighetsperiode(periode(daysFromNow(9), null));
+
+        when(organisasjonselementResourceCache.getOptional("organisasjonsid/1"))
+                .thenReturn(Optional.of(workplace));
+        when(gyldighetsperiodeService.isValid(workplace.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(false);
+
+        ResourceLookupResult<OrganisasjonselementResource> result =
+                arbeidsforholdService.resolveArbeidssted(arbeidsforhold, currentTime);
+
+        assertThat(result.status()).isEqualTo(ResourceLookupStatus.NOT_VALID);
+    }
+
+    @Test
+    public void getAllArbeidssteder_ShouldReturnAllResolvedWorkplaces() {
         ArbeidsforholdResource arbeidsforhold1 = new ArbeidsforholdResource();
         arbeidsforhold1.addArbeidssted(Link.with("organisasjonselementid/1"));
 
@@ -168,7 +214,9 @@ class ArbeidsforholdServiceTest {
                 .thenReturn(Optional.of(workplace1));
         when(organisasjonselementResourceCache.getOptional("organisasjonselementid/2"))
                 .thenReturn(Optional.of(workplace2));
-        when(gyldighetsperiodeService.isValid(any(), eq(currentTime), eq(0)))
+        when(gyldighetsperiodeService.isValid(workplace1.getGyldighetsperiode(), currentTime, 0))
+                .thenReturn(true);
+        when(gyldighetsperiodeService.isValid(workplace2.getGyldighetsperiode(), currentTime, 0))
                 .thenReturn(true);
 
         List<Optional<OrganisasjonselementResource>> result = arbeidsforholdService.getAllArbeidssteder(
@@ -191,5 +239,18 @@ class ArbeidsforholdServiceTest {
         resource.setGyldighetsperiode(new Periode());
         resource.setSystemId(identifikator);
         return resource;
+    }
+
+    private Date daysFromNow(int days) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DATE, days);
+        return calendar.getTime();
+    }
+
+    private Periode periode(Date start, Date slutt) {
+        Periode periode = new Periode();
+        periode.setStart(start);
+        periode.setSlutt(slutt);
+        return periode;
     }
 }

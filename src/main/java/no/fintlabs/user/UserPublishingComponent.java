@@ -12,6 +12,7 @@ import no.fintlabs.resourceServices.ArbeidsforholdService;
 import no.fintlabs.links.ResourceLinkUtil;
 import no.fintlabs.resourceServices.PersonService;
 import no.fintlabs.resourceServices.PersonalressursService;
+import no.fintlabs.resourceServices.ResourceLookupResult;
 import no.fintlabs.resourceServices.SkoleressursService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -41,51 +42,73 @@ public class UserPublishingComponent {
         log.info("<< Start scheduled import of employees >>");
         List<PersonalressursResource> allEmployees = personalressursService.getAllUsersfromCache();
 
-        List<User> allValidEmployeeUsers = allEmployees
+        List<User> allEmployeeUsersToPublish = allEmployees
                 .stream()
                 .map(personalressursResource -> createUser(personalressursResource, currentTime))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
 
-        List<User> publishedUsers = userEntityProducerService.publishChangedUsers(allValidEmployeeUsers);
+        List<User> publishedUsers = userEntityProducerService.publishChangedUsers(allEmployeeUsersToPublish);
         log.info("Number of personalressurs read from FINT: {}", allEmployees.size());
         log.info("Number of users from Entra ID: {}", entraUserService.getNumberOfEntraUsersInCache());
-        log.info("Published {} of {} employee users in cache", publishedUsers.size(), allValidEmployeeUsers.size());
+        log.info("Published {} of {} employee users in cache", publishedUsers.size(), allEmployeeUsersToPublish.size());
         log.info("<< End scheduled import of employees >>");
+    }
+
+    public Optional<User> createUser(PersonalressursResource personalressursResource) {
+        return createUser(personalressursResource, Date.from(Instant.now()));
     }
 
     public Optional<User> createUser(PersonalressursResource personalressursResource, Date currentTime) {
 
         String resourceId = personalressursService.getResourceId(personalressursResource);
 
-        Optional<PersonResource> personResourceOptional = personService.getPerson(personalressursResource);
-        if (personResourceOptional.isEmpty()) {
-            log.warn("Creating user failed, resourceId={}, missing personResource", resourceId);
-            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
+        ResourceLookupResult<List<ArbeidsforholdResource>> arbeidsforholdLookup =
+                arbeidsforholdService.resolveAllArbeidsforhold(personalressursResource.getArbeidsforhold());
+        if (arbeidsforholdLookup.isMissingLink()) {
+            return createInvalidEmployee(resourceId, "missing arbeidsforhold link");
+        }
+        if (arbeidsforholdLookup.isCacheMiss()) {
+            return skipEmployee(resourceId, "missing linked arbeidsforhold in cache");
+        }
+
+        ResourceLookupResult<PersonResource> personLookup = personService.resolvePerson(personalressursResource);
+        if (personLookup.isMissingLink()) {
+            return createInvalidEmployee(resourceId, "missing person link");
+        }
+        if (personLookup.isCacheMiss()) {
+            return skipEmployee(resourceId, "missing linked person in cache");
         }
 
         //Hovedstilling eller stilling med høyest stillingsprosent hvis hovedstilling ikke er spesifisert
-        Optional<ArbeidsforholdResource> hovedArbeidsforholdOptional =
-                arbeidsforholdService.getHovedArbeidsforhold(personalressursResource.getArbeidsforhold(), currentTime, resourceId);
+        Optional<ArbeidsforholdResource> hovedArbeidsforholdOptional = arbeidsforholdService
+                .getHovedArbeidsforhold(arbeidsforholdLookup.resource(), currentTime, resourceId);
 
         if (hovedArbeidsforholdOptional.isEmpty()) {
             log.debug("Creating user failed, resourceId={}, missing arbeidsforhold", resourceId);
-            return Optional.empty(); // TODO we should mark this user as invalid and send it to the catalog
+            return skipEmployee(resourceId, "missing valid arbeidsforhold");
         }
 
-        Optional<OrganisasjonselementResource> hovedArbeidsstedOptional = hovedArbeidsforholdOptional
-                .flatMap(arbeidsforhold -> arbeidsforholdService.getArbeidssted(arbeidsforhold, currentTime));
+        ResourceLookupResult<OrganisasjonselementResource> hovedArbeidsstedLookup =
+                arbeidsforholdService.resolveArbeidssted(hovedArbeidsforholdOptional.get(), currentTime);
+        if (hovedArbeidsstedLookup.isMissingLink()) {
+            return createInvalidEmployee(resourceId, "missing arbeidssted link");
+        }
+        if (hovedArbeidsstedLookup.isCacheMiss()) {
+            return skipEmployee(resourceId, "missing linked arbeidssted in cache");
+        }
+        if (hovedArbeidsstedLookup.isNotValid()) {
+            return skipEmployee(resourceId, "arbeidssted is not valid in selection window");
+        }
 
         //Additional orgunits
         Set<String> additionalArbeidssteder = new HashSet<>();
-
-        List<ArbeidsforholdResource> additionalArbeidsforhold =
-                arbeidsforholdService.getAllValidArbeidsforholdAsList(personalressursResource.getArbeidsforhold(),
-                        currentTime, resourceId);
+        List<ArbeidsforholdResource> validArbeidsforhold =
+                arbeidsforholdService.getAllValidArbeidsforholdAsList(arbeidsforholdLookup.resource(), currentTime);
 
         List<Optional<OrganisasjonselementResource>> additionalOrgUnits =
-                arbeidsforholdService.getAllArbeidssteder(additionalArbeidsforhold, currentTime);
+                arbeidsforholdService.getAllArbeidssteder(validArbeidsforhold, currentTime);
 
         if (!additionalOrgUnits.isEmpty()) {
             additionalArbeidssteder = additionalOrgUnits
@@ -95,7 +118,7 @@ public class UserPublishingComponent {
                     .collect(Collectors.toSet());
         }
 
-        Optional<String> lederPersonalressursLinkOptional = hovedArbeidsstedOptional
+        Optional<String> lederPersonalressursLinkOptional = Optional.of(hovedArbeidsstedLookup.resource())
                 .flatMap(arbeidssted -> ResourceLinkUtil.getOptionalFirstLink(arbeidssted::getLeder));
 
         //Azure attributes
@@ -105,22 +128,19 @@ public class UserPublishingComponent {
             return Optional.empty();
         }
         if(entraUserAttributes.get().entraStatus().equals(UserStatus.DELETED)) {
-            log.info("Creating user (student) failed, resourceId={}, user is deleted in Entra", resourceId);
+            log.info("Creating user failed, resourceId={}, user is deleted in Entra", resourceId);
             return Optional.empty();
         }
-        String fintStatus = UserUtils.getFINTAnsattStatus(personalressursResource, currentTime);
-
         return Optional.of(
                 createUser(
                         personalressursResource,
-                        personResourceOptional.get(),
+                        personLookup.resource(),
                         lederPersonalressursLinkOptional.orElse(""),
-                        hovedArbeidsstedOptional.isPresent() ? hovedArbeidsstedOptional.get().getNavn() : "mangler info",
-                        hovedArbeidsstedOptional.isPresent() ? hovedArbeidsstedOptional.get().getOrganisasjonsId().getIdentifikatorverdi() : "mangler info",
+                        hovedArbeidsstedLookup.resource().getNavn(),
+                        hovedArbeidsstedLookup.resource().getOrganisasjonsId().getIdentifikatorverdi(),
                         additionalArbeidssteder,
                         entraUserAttributes.get(),
-                        resourceId,
-                        fintStatus)
+                        resourceId)
         );
     }
 
@@ -132,16 +152,13 @@ public class UserPublishingComponent {
             String organisasjonsId,
             Set<String> additionalArbeidsteder,
             EntraUserAttributes entraUserAttributes,
-            String resourceId,
-            String fintStatus
+            String resourceId
     ) {
 
         Date validFrom = personalressursResource.getAnsettelsesperiode().getStart();
         Date validTo = personalressursResource.getAnsettelsesperiode().getSlutt();
 
-        String userType = skoleressursService.isEmployeeInSchool(resourceId)
-                ? String.valueOf(UserUtils.UserType.EMPLOYEEFACULTY)
-                : String.valueOf(UserUtils.UserType.EMPLOYEESTAFF);
+        String userType = getEmployeeUserType(resourceId);
 
         log.info("Creating user with resourceId: {}",resourceId);
 
@@ -158,11 +175,68 @@ public class UserPublishingComponent {
                 .identityProviderUserObjectId(UUID.fromString(entraUserAttributes.identityProviderUserObjectId()))
                 .email(entraUserAttributes.email())
                 .userName(entraUserAttributes.userName())
-                .fintStatus(fintStatus)
+                .fintStatus(FintStatus.VALID)
                 .entraStatus(entraUserAttributes.entraStatus())
                 .validFrom(validFrom)
                 .validTo(validTo)
                 .build();
+    }
+
+    private Optional<User> createInvalidEmployee(String resourceId, String reason) {
+        log.info("Creating user failed, resourceId={}, reason={}", resourceId, reason);
+
+        Optional<EntraUserAttributes> entraUserAttributes = entraUserService.getEntraUserAttributes(resourceId);
+        if (entraUserAttributes
+                .map(EntraUserAttributes::entraStatus)
+                .filter(UserStatus.DELETED::equals)
+                .isPresent()) {
+            return skipEmployee(resourceId, "user is deleted in Entra");
+        }
+
+        // Invalid payloads are intentionally minimal. The catalog preserves any
+        // existing user details and updates only status/statusChanged.
+        User.UserBuilder userBuilder = User.builder()
+                .resourceId(resourceId)
+                .userType(getEmployeeUserType(resourceId))
+                .fintStatus(FintStatus.INVALID);
+
+        entraUserAttributes
+                .map(EntraUserAttributes::identityProviderUserObjectId)
+                .flatMap(identityProviderUserObjectId ->
+                        parseIdentityProviderUserObjectId(resourceId, identityProviderUserObjectId))
+                .ifPresent(userBuilder::identityProviderUserObjectId);
+
+        return Optional.of(userBuilder.build());
+    }
+
+    private Optional<User> skipEmployee(String resourceId, String reason) {
+        log.info("Creating user skipped, resourceId={}, reason={}", resourceId, reason);
+        return Optional.empty();
+    }
+
+    private String getEmployeeUserType(String resourceId) {
+        return skoleressursService.isEmployeeInSchool(resourceId)
+                ? UserType.EMPLOYEEFACULTY.name()
+                : UserType.EMPLOYEESTAFF.name();
+    }
+
+    private Optional<UUID> parseIdentityProviderUserObjectId(
+            String resourceId,
+            String identityProviderUserObjectId
+    ) {
+        if (identityProviderUserObjectId == null || identityProviderUserObjectId.isBlank()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(UUID.fromString(identityProviderUserObjectId));
+        } catch (IllegalArgumentException e) {
+            log.warn(
+                    "Ignoring invalid identityProviderUserObjectId for invalid employee, resourceId={}",
+                    resourceId
+            );
+            return Optional.empty();
+        }
     }
 
 }

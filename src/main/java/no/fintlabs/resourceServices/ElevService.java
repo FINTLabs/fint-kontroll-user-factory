@@ -14,11 +14,10 @@ import java.util.List;
 public class ElevService {
     private final FintCache<String, ElevResource> elevResourceCache;
 
-    public List<ElevResource> getAllEleverWithElevforhold(){
+    public List<ElevResource> getAllElever(){
         return elevResourceCache
                 .getAllDistinct()
                 .stream()
-                .filter(elevResource -> !elevResource.getElevforhold().isEmpty())
                 .toList();
     }
 

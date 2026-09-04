@@ -45,9 +45,8 @@ class PersonalressursServiceTest {
         List<PersonalressursResource> result = personalressursService.getAllUsersfromCache();
 
         assertThat(result)
-                .hasSize(2)
-                .containsExactlyInAnyOrder(withArbeidsforhold, withMultipleArbeidsforhold)
-                .doesNotContain(withoutArbeidsforhold);
+                .hasSize(3)
+                .containsExactlyInAnyOrder(withArbeidsforhold, withoutArbeidsforhold, withMultipleArbeidsforhold);
 
         verify(PersonalressursResourceCache).getAllDistinct();
     }

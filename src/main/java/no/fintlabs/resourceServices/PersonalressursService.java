@@ -20,10 +20,7 @@ public class PersonalressursService {
     }
 
     public List<PersonalressursResource> getAllUsersfromCache() {
-        return personalressursResourceCache.getAllDistinct()
-                .stream()
-                .filter(personalressursResource -> !personalressursResource.getArbeidsforhold().isEmpty())
-                .toList();
+        return personalressursResourceCache.getAllDistinct();
     }
 
     public String getResourceId(PersonalressursResource personalressursResource) {
