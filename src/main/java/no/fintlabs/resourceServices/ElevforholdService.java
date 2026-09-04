@@ -112,16 +112,13 @@ public class ElevforholdService {
 
     public ResourceLookupResult<SkoleResource> resolveSkole(ElevforholdResource elevforhold) {
         Optional<String> skoleHref = getFirstHref(elevforhold.getSkole()).map(String::toLowerCase);
-        if (skoleHref.isEmpty()) {
-            return ResourceLookupResult.missingLink();
-        }
-
-        return skoleResourceCache.getOptional(skoleHref.get())
+        return skoleHref.map(s -> skoleResourceCache.getOptional(s)
                 .map(ResourceLookupResult::found)
                 .orElseGet(() -> {
-                    log.info("Skole not found in cache: {}", skoleHref.get());
+                    log.info("Skole not found in cache: {}", s);
                     return ResourceLookupResult.cacheMiss();
-                });
+                })).orElseGet(ResourceLookupResult::missingLink);
+
     }
 
     public Optional<OrganisasjonselementResource> getSkoleOrgUnit(SkoleResource skoleResource) {

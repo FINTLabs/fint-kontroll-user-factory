@@ -1,11 +1,11 @@
 package no.fintlabs.resourceServices;
 
 import lombok.extern.slf4j.Slf4j;
+import no.fintlabs.cache.FintCache;
+import no.fintlabs.links.ResourceLinkUtil;
 import no.novari.fint.model.resource.Link;
 import no.novari.fint.model.resource.administrasjon.organisasjon.OrganisasjonselementResource;
 import no.novari.fint.model.resource.administrasjon.personal.ArbeidsforholdResource;
-import no.fintlabs.cache.FintCache;
-import no.fintlabs.links.ResourceLinkUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +15,11 @@ import java.util.*;
 @Slf4j
 public class ArbeidsforholdService {
 
-    @Value("${fint.kontroll.user.days-before-start-employee:0}")
-    private int daysBeforeStartEmployee;
-
     private final GyldighetsperiodeService gyldighetsperiodeService;
     private final FintCache<String, ArbeidsforholdResource> arbeidsforholdResourceCache;
     private final FintCache<String, OrganisasjonselementResource> organisasjonselementResourceCache;
+    @Value("${fint.kontroll.user.days-before-start-employee:0}")
+    private int daysBeforeStartEmployee;
 
     public ArbeidsforholdService(
             GyldighetsperiodeService gyldighetsperiodeService,
@@ -30,16 +29,6 @@ public class ArbeidsforholdService {
         this.gyldighetsperiodeService = gyldighetsperiodeService;
         this.arbeidsforholdResourceCache = arbeidsforholdResourceCache;
         this.organisasjonselementResourceCache = organisasjonselementResourceCache;
-    }
-
-    public Optional<ArbeidsforholdResource> getHovedArbeidsforhold(
-            Collection<Link> arbeidsforholdLinks,
-            Date currentTime,
-            String resourceId) {
-
-        List<ArbeidsforholdResource> allValidArbeidsforhold =
-                getAllValidArbeidsforholdAsList(arbeidsforholdLinks, currentTime, resourceId);
-        return selectHovedArbeidsforhold(allValidArbeidsforhold, resourceId);
     }
 
     public Optional<ArbeidsforholdResource> getHovedArbeidsforhold(
@@ -65,7 +54,6 @@ public class ArbeidsforholdService {
 
         return hovedarbeidsforhold;
     }
-
 
     public ResourceLookupResult<List<ArbeidsforholdResource>> resolveAllArbeidsforhold(
             Collection<Link> arbeidsforholdLinks) {
@@ -102,27 +90,6 @@ public class ArbeidsforholdService {
                 .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
                 .toList();
     }
-
-    public List<ArbeidsforholdResource> getAllValidArbeidsforholdAsList(
-            Collection<Link> arbeidsforholdLinks,
-            Date currentTime,
-            String resourceId) {
-
-        if (arbeidsforholdLinks == null || arbeidsforholdLinks.isEmpty()) {
-            return List.of();
-        }
-
-        return arbeidsforholdLinks
-                .stream()
-                .filter(link -> link != null && link.getHref() != null && !link.getHref().isBlank())
-                .map(Link::getHref)
-                .map(ResourceLinkUtil::systemIdToLowerCase)
-                .map(arbeidsforholdResourceCache::getOptional)
-                .flatMap(Optional::stream)
-                .filter(arbeidsforholdResource -> isValid(arbeidsforholdResource, currentTime))
-                .toList();
-    }
-
 
     private Optional<ArbeidsforholdResource> getMainArbeidsforhold(
             List<ArbeidsforholdResource> arbeidsforholdResources) {
